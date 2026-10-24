@@ -1,0 +1,127 @@
+; 开关课的位、进制、命令。不打开网络。
+(require "aura/bits" all:)
+
+(define *fails* 0)
+
+(define (expect name got want)
+  (if (equal? got want)
+    #t
+    (begin
+      (set! *fails* (+ *fails* 1))
+      (display "FAIL ")
+      (display name)
+      (display "\n  got  ")
+      (display got)
+      (display "\n  want ")
+      (display want)
+      (newline))))
+
+(define (state-of text)
+  (bits:result (bits:command (bits:fresh) text)))
+
+(define st (bits:fresh))
+(expect "fresh lamp" (bits:lamp st) 1)
+(expect "fresh width" (bits:width st) 5)
+(expect "fresh value" (bits:value st) 11)
+(expect "fresh bits" (bits:from-int 11 5) "01011")
+(expect "fresh hex" (bits:hex 11 5) "0B")
+(expect "fresh oct" (bits:oct 11 5) "13")
+(expect "fresh hexg" (bits:hex-grouped 11 5) "0 1011")
+(expect "fresh octg" (bits:oct-grouped 11 5) "01 011")
+(expect "byte bits" (bits:from-int 65 8) "01000001")
+(expect "byte hex" (bits:hex 65 8) "41")
+(expect "byte oct" (bits:oct 65 8) "101")
+(expect "byte hexg" (bits:hex-grouped 65 8) "0100 0001")
+(expect "byte octg" (bits:oct-grouped 65 8) "01 000 001")
+(expect "ff" (bits:hex 255 8) "FF")
+(expect "377" (bits:oct 255 8) "377")
+(expect "ffg" (bits:hex-grouped 255 8) "1111 1111")
+(expect "letter A" (bits:letter 65) "A")
+(expect "letter small" (bits:letter 10) "")
+(expect "color" (bits:hex 255 8) "FF")
+
+(define flipped (state-of "flip 0"))
+(expect "flip msb" (bits:value flipped) 27)
+(expect "flip bits" (bits:from-int (bits:value flipped) 5) "11011")
+
+(define age (state-of "set dec 65"))
+(expect "age value" (bits:value age) 65)
+(expect "age width" (bits:width age) 8)
+(expect "age bits" (bits:from-int (bits:value age) 8) "01000001")
+(expect "age letter" (bits:letter (bits:value age)) "A")
+
+(define ff (state-of "set hex ff"))
+(expect "hex value" (bits:value ff) 255)
+(expect "hex width" (bits:width ff) 8)
+
+(define oct (state-of "set oct 10"))
+(expect "oct value" (bits:value oct) 8)
+(expect "oct width" (bits:width oct) 5)
+
+(define four (state-of "set bin 1111"))
+(expect "bin4 value" (bits:value four) 15)
+(expect "bin4 width" (bits:width four) 4)
+(expect "bin4 hex" (bits:hex 15 4) "F")
+(expect "bin4 oct" (bits:oct 15 4) "17")
+
+(define spaced (state-of "set bin 0100 0001"))
+(expect "spaced" (bits:value spaced) 65)
+
+(define wide-no (bits:command age "width 4"))
+(expect "width refuse" (bits:ok? wide-no) #f)
+(expect "width kept" (bits:value (bits:result wide-no)) 65)
+
+(define big (bits:command st "set dec 999"))
+(expect "big refuse" (bits:ok? big) #f)
+(expect "big kept" (bits:value (bits:result big)) 11)
+(expect "big msg" (bits:error big) "写一个 0 到 255 的整数")
+
+(define han (bits:command st "set letter 果"))
+(expect "han refuse" (bits:ok? han) #f)
+(expect "han kept" (bits:value (bits:result han)) 11)
+
+(define letter (bits:command st "set letter A"))
+(expect "letter value" (bits:value (bits:result letter)) 65)
+(expect "letter width" (bits:width (bits:result letter)) 8)
+
+(define green (state-of "color 00ff00"))
+(expect "green g" (bits:green green) 255)
+(expect "green r" (bits:red green) 0)
+(expect "green b" (bits:blue green) 0)
+
+(define redbit (state-of "chan red hex 80"))
+(expect "red 128" (bits:red redbit) 128)
+
+(define pix (state-of "pix 0 2"))
+(expect "pix row" (bits:nth (bits:rows pix) 0) 28)
+
+(define heart (state-of "stamp heart"))
+(expect "heart" (bits:nth (bits:rows heart) 0) 102)
+
+(define src (bits:source st))
+(expect "src bits" (not (= (string-index src "(define *bits* \"01011\")" 0) -1)) #t)
+(define back (bits:command st src))
+(expect "round ok" (bits:ok? back) #t)
+(expect "round value" (bits:value (bits:result back)) 11)
+(expect "round red" (bits:red (bits:result back)) 255)
+(expect "round row" (bits:nth (bits:rows (bits:result back)) 0) 60)
+(expect "round lamp" (bits:lamp (bits:result back)) 1)
+
+(define bad "(define *lamp* \"1\")\n(define *width* \"5\")\n(define *bits* \"01211\")\n(define *red* \"11111111\")\n(define *green* \"00000000\")\n(define *blue* \"00000000\")\n(define *pixels* \"00000000\n00000000\n00000000\n00000000\n00000000\n00000000\n00000000\n00000000\")\n")
+(define bad-r (bits:command st bad))
+(expect "bad ok" (bits:ok? bad-r) #f)
+(expect "bad kept" (bits:value (bits:result bad-r)) 11)
+
+(define js (bits:json age #t "" ""))
+(expect "json bits" (not (= (string-index js "\"bits\":\"01000001\"" 0) -1)) #t)
+(expect "json hex" (not (= (string-index js "\"hex\":\"41\"" 0) -1)) #t)
+(expect "json letter" (not (= (string-index js "\"letter\":\"A\"" 0) -1)) #t)
+(expect "json color" (not (= (string-index js "\"color\":\"#FF0000\"" 0) -1)) #t)
+
+(if (= *fails* 0)
+  (begin (display "GUOGUO_OK\n") (exit 0))
+  (begin
+    (display "GUOGUO_FAIL ")
+    (display *fails*)
+    (newline)
+    (exit 1)))

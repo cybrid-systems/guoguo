@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+"""Exercise the Aura ↔ HTML preview without a browser."""
+
+import json
+import sys
+import urllib.error
+import urllib.request
+
+base = sys.argv[1]
+live = sys.argv[2]
+
+
+def fetch(path, data=None):
+    req = urllib.request.Request(
+        base + path,
+        data=None if data is None else data.encode("utf-8"),
+        method="GET" if data is None else "POST",
+    )
+    if data is not None:
+        req.add_header("Content-Type", "text/plain; charset=utf-8")
+    with urllib.request.urlopen(req, timeout=20) as res:
+        body = res.read()
+        claimed = res.headers.get("Content-Length")
+        if claimed is not None and int(claimed) != len(body):
+            raise SystemExit(f"{path}: Content-Length {claimed} but body is {len(body)} bytes")
+        return body
+
+
+def post(cmd):
+    return json.loads(fetch("/api", cmd).decode("utf-8"))
+
+
+def need(cond, msg):
+    if not cond:
+        raise SystemExit(msg)
+
+
+page = fetch("/").decode("utf-8")
+need("果果的开关课" in page, "page missing title")
+need("计算机只懂开和关" in page, "page lost Chinese text")
+need('id="source"' in page, "page missing Aura source box")
+need("双向预览" in page, "page missing preview heading")
+
+try:
+    urllib.request.urlopen(base + "/nope", timeout=10)
+    raise SystemExit("expected 404")
+except urllib.error.HTTPError as err:
+    need(err.code == 404, f"expected 404, got {err.code}")
+
+state = json.loads(fetch("/api/state").decode("utf-8"))
+need(state["ok"] is True, "state not ok")
+need(state["bits"] == "01011", state["bits"])
+need(state["dec"] == 11, state)
+need(state["hex"] == "0B", state["hex"])
+need(state["oct"] == "13", state["oct"])
+need(state["hexGrouped"] == "0 1011", state["hexGrouped"])
+need(state["octGrouped"] == "01 011", state["octGrouped"])
+need(state["color"] == "#FF0000", state["color"])
+need(state["width"] == 5, state["width"])
+need('(define *bits* "01011")' in state["source"], state["source"])
+need(state["hexChunks"][1]["digit"] == "B", state["hexChunks"])
+
+age = post("set dec 65")
+need(age["ok"] is True, age.get("error"))
+need(age["bits"] == "01000001", age["bits"])
+need(age["dec"] == 65, age["dec"])
+need(age["width"] == 8, age["width"])
+need(age["hex"] == "41", age["hex"])
+need(age["oct"] == "101", age["oct"])
+need(age["letter"] == "A", age["letter"])
+need(age["hexGrouped"] == "0100 0001", age["hexGrouped"])
+need(age["octGrouped"] == "01 000 001", age["octGrouped"])
+need(age["color"] == "#FF0000", age["color"])
+
+saved = open(live, encoding="utf-8").read()
+need('(define *bits* "01000001")' in saved, saved)
+
+refused = post("set dec 999")
+need(refused["ok"] is False, "999 should fail")
+need(refused["dec"] == 65, refused["dec"])
+need("255" in refused["error"], refused["error"])
+
+narrow = post("width 4")
+need(narrow["ok"] is False, "65 should not fit in 4 cards")
+need(narrow["dec"] == 65, narrow["dec"])
+
+flipped = post("flip 0")
+need(flipped["bits"] == "11000001", flipped["bits"])
+need(flipped["dec"] == 193, flipped["dec"])
+
+paint = post("color 00ff00")
+need(paint["color"] == "#00FF00", paint["color"])
+need(paint["dec"] == 193, "color must not change the number byte")
+need(paint["green"] == 255, paint["green"])
+
+heart = post("stamp heart")
+need(heart["rows"][0] == "01100110", heart["rows"][0])
+need(heart["rowHex"][0] == "66", heart["rowHex"])
+
+back = post(heart["source"])
+need(back["ok"] is True, back.get("error"))
+need(back["dec"] == 193, back["dec"])
+need(back["color"] == "#00FF00", back["color"])
+need(back["rows"][0] == "01100110", back["rows"][0])
+
+edited = back["source"].replace('(define *bits* "11000001")', '(define *bits* "00000001")', 1)
+open(live, "w", encoding="utf-8").write(edited)
+loaded = post("reload")
+need(loaded["ok"] is True, loaded.get("error"))
+need(loaded["bits"] == "00000001", loaded["bits"])
+need(loaded["dec"] == 1, loaded["dec"])

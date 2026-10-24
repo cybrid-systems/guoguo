@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>果果的开关课</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23f4efe4'/%3E%3Ccircle cx='16' cy='12' r='6' fill='%23ffe27a'/%3E%3Crect x='14' y='18' width='4' height='8' rx='2' fill='%231f1a14'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --paper: #f4efe4;
+    --ink: #1f1a14;
+    --card: #fffdf8;
+    --line: #e4d8c4;
+    --gold: #e2a320;
+    --coral: #c4492c;
+    --sea: #23406e;
+    --leaf: #1f6b4a;
+    --shadow: 0 10px 30px rgba(60, 40, 10, 0.06);
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    color: var(--ink);
+    background:
+      radial-gradient(circle at 8% -10%, #fff 0%, transparent 36%),
+      var(--paper);
+    font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Source Han Sans SC", sans-serif;
+    line-height: 1.5;
+  }
+  button, input, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 3px solid var(--sea); outline-offset: 2px; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 28px 20px 64px; }
+  header h1 {
+    font-family: Palatino, "Iowan Old Style", "Songti SC", "Noto Serif SC", serif;
+    font-size: 52px;
+    line-height: 1;
+    margin: 0 0 8px;
+    font-weight: 600;
+  }
+  .eyebrow { margin: 0 0 8px; letter-spacing: 0.08em; color: var(--coral); font-size: 13px; }
+  .lead { margin: 0 0 18px; max-width: 40em; font-size: 18px; }
+  nav { display: flex; gap: 8px; flex-wrap: wrap; }
+  nav button, .pills button, .tools button, .presets button {
+    border: 1px solid var(--line);
+    background: var(--card);
+    border-radius: 999px;
+    padding: 8px 14px;
+  }
+  nav button[aria-selected="true"], .pills button[aria-pressed="true"] {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+  #note, #toast { margin: 14px 0 0; border-radius: 12px; padding: 10px 14px; }
+  #note { background: #fff4d6; }
+  #toast { background: #fde8e2; color: #8a2b1b; }
+  section.block, .aura {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    padding: 18px 18px 20px;
+    margin-top: 14px;
+    box-shadow: var(--shadow);
+  }
+  h2 { font-size: 22px; margin: 0 0 8px; }
+  h3 { margin: 0 0 6px; font-size: 16px; }
+  .muted { color: #6d6256; }
+  .story-rail { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+  .story-rail button {
+    width: 42px; height: 42px; border-radius: 50%;
+    border: 2px solid var(--line); background: var(--paper);
+  }
+  .story-rail button.on { background: var(--sea); color: white; border-color: var(--sea); }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .panel {
+    border: 1px dashed var(--line);
+    border-radius: 16px;
+    padding: 14px;
+    background: #fbf7f0;
+  }
+  .bulb {
+    width: 112px; height: 112px; border-radius: 50%;
+    margin: 0 auto 8px; background: #d9d0c2;
+  }
+  #lamp.on .bulb { background: #ffe27a; box-shadow: 0 0 36px #ffd15a; }
+  #lamp {
+    display: block; width: 100%; border: 0; background: transparent; padding: 8px;
+  }
+  #volt { text-align: center; font-weight: 700; }
+  input[type="range"] { width: 100%; }
+  .analog-read { font-variant-numeric: tabular-nums; font-size: 28px; margin: 6px 0; }
+  .people, .path, .contexts, .reads { display: grid; gap: 10px; }
+  .people { grid-template-columns: 1fr 1fr; }
+  .path { grid-template-columns: repeat(4, 1fr); }
+  .contexts { grid-template-columns: 1.1fr 1.1fr 1fr; }
+  .reads { grid-template-columns: 1fr 1.4fr 1fr 1fr 1fr; }
+  .people article, .path span, .contexts article, label.field {
+    background: #fbf7f0;
+    border-radius: 14px;
+    padding: 10px 12px;
+  }
+  .path span { display: block; text-align: center; }
+  label.field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+  label.field input, .chan input, #rowhexes input {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 8px 10px;
+    background: white;
+    font-family: ui-monospace, "Source Code Pro", monospace;
+    font-size: 18px;
+  }
+  .cards { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin: 12px 0; }
+  .card {
+    width: 104px; height: 148px; border-radius: 18px;
+    border: 2px solid var(--line); background: var(--card);
+    display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+    padding: 8px 6px 10px;
+  }
+  .card.on { border-color: var(--gold); box-shadow: 0 8px 0 #ead7a4; }
+  .card:not(.on) {
+    background: repeating-linear-gradient(135deg, #e7d7b8, #e7d7b8 6px, #f3e6cc 6px, #f3e6cc 12px);
+  }
+  .dots { min-height: 78px; display: grid; gap: 4px; align-content: center; justify-content: center; }
+  .dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--ink); display: block; }
+  .dots.back, .dots.numeral { display: flex; align-items: center; justify-content: center; font-weight: 700; }
+  .dots.numeral { font-size: 28px; }
+  .place { font-variant-numeric: tabular-nums; font-weight: 700; }
+  .big { font-size: 42px; margin: 0; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .mono { font-family: ui-monospace, "Source Code Pro", monospace; }
+  .chunks { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .chunk { border-radius: 12px; padding: 8px 10px; min-width: 64px; text-align: center; }
+  .chunk.c0 { background: #fde8e2; }
+  .chunk.c1 { background: #e4ebf7; }
+  .chunk.c2 { background: #fff1cc; }
+  .cbits { display: block; font-family: ui-monospace, monospace; letter-spacing: 0.08em; }
+  .cdigit { display: block; font-size: 22px; font-weight: 700; }
+  .swatch {
+    min-height: 112px; border-radius: 18px; display: flex; align-items: flex-end;
+    padding: 12px 16px; font-size: 28px; margin: 8px 0 12px;
+  }
+  .chan { display: flex; align-items: center; gap: 8px; margin: 6px 0; flex-wrap: wrap; }
+  .chan span { width: 1.2em; font-weight: 700; }
+  .bits, #asPixels { display: flex; gap: 4px; flex-wrap: wrap; }
+  .bit, #asPixels i {
+    width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--line);
+    background: #f4efe4; padding: 0;
+  }
+  .bit.on, #asPixels i.on { background: var(--ink); border-color: var(--ink); }
+  .pixwrap { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+  #grid { display: grid; grid-template-columns: repeat(8, 28px); gap: 4px; background: white; padding: 8px; border-radius: 12px; }
+  .px { width: 28px; height: 28px; border-radius: 4px; border: 1px solid #eee; background: #f7f4ee; padding: 0; }
+  .px.on { background: var(--ink); border-color: var(--ink); }
+  #rowhexes { display: grid; grid-template-rows: repeat(8, 28px); gap: 4px; padding-top: 8px; }
+  #rowhexes input { width: 58px; height: 28px; padding: 0; text-align: center; }
+  .tools, .presets, .pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+  .aura textarea {
+    width: 100%; min-height: 240px; border-radius: 14px; border: 0; padding: 14px;
+    background: #1f1a14; color: #f4efe4;
+    font-family: ui-monospace, "Source Code Pro", monospace;
+    font-size: 14px; line-height: 1.45;
+  }
+  .sync { margin: 8px 0 0; }
+  footer { margin-top: 18px; color: #6d6256; }
+  @media (max-width: 800px) {
+    .split, .people, .path, .contexts, .reads { grid-template-columns: 1fr; }
+    header h1 { font-size: 40px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">果果编程课 · 第 1 课</p>
+    <h1>开关课</h1>
+    <p class="lead">计算机只懂开和关。这两节课，把开和关变成数字、字母、颜色和画。</p>
+    <nav>
+      <button type="button" data-tab="1" aria-selected="true">第 1 课 · 开和关</button>
+      <button type="button" data-tab="2" aria-selected="false">第 2 课 · 把信息存进去</button>
+    </nav>
+    <details>
+      <summary>给一起上课的人</summary>
+      <p>三句话就够：计算机用可靠的电开关工作；硬件是身体，软件是指令；所有信息最终都是位，加上怎么解释它。翻上面的卡片，下面的 Aura 程序会变。改程序再按「用这段程序更新画面」，卡片会跟着翻。完整的两节课在 <span class="mono">docs/lesson-1.md</span>。</p>
+    </details>
+  </header>
+  <p id="note" hidden></p>
+  <p id="toast" role="status" hidden></p>
+
+  <div id="lesson1">
+    <section class="block">
+      <h2>计算机是怎么变小的</h2>
+      <p class="muted">点一颗珠子，听一段。重点只有一句：越来越可靠的电开关。</p>
+      <div class="story-rail" id="story-rail"></div>
+      <h3 id="story-title">算盘和齿轮</h3>
+      <p id="story-body">很早以前，人用算盘和齿轮记数。很慢，但是已经知道：把数记下来，就能接着算。</p>
+    </section>
+
+    <section class="block">
+      <h2>从水龙头到开关</h2>
+      <div class="split">
+        <div class="panel">
+          <h3>模拟 · 水龙头</h3>
+          <p class="muted">电压可以是 0V 到 5V 之间的任何值，而且会晃。不好抄、不好记。</p>
+          <input id="dimmer" type="range" min="0" max="50" value="27" aria-label="模拟电压">
+          <p class="analog-read" id="analog">2.70 V</p>
+        </div>
+        <div class="panel">
+          <h3>数字 · 开关</h3>
+          <p class="muted">只有两种。高电压大约 5V，记作 1。低电压接近 0V，记作 0。</p>
+          <button type="button" id="lamp" class="on" aria-pressed="true" aria-label="电灯开关">
+            <div class="bulb"></div>
+            <div id="volt">约 5V · 开 · 1</div>
+          </button>
+        </div>
+      </div>
+      <p>晶体管就是这种极快、极可靠的开关。芯片是成千上万个开关印在一小片硅上。</p>
+    </section>
+
+    <section class="block">
+      <h2>硬件是身体，软件是菜谱</h2>
+      <div class="people">
+        <article><h3>眼睛</h3><p>键盘、鼠标、摄像头。这是输入。</p></article>
+        <article><h3>大脑</h3><p>CPU。它在处理。</p></article>
+        <article><h3>记忆</h3><p>内存和硬盘。它在记住。</p></article>
+        <article><h3>嘴巴和手</h3><p>屏幕、扬声器。这是输出。</p></article>
+      </div>
+      <p>软件是菜谱，告诉硬件先做这个、再做那个。没有软件，硬件只是一堆零件。游戏是软件，跑在手机这块身体上。</p>
+      <div class="path" aria-label="从你写的字到屏幕">
+        <span>你写的字</span>
+        <span>变成一串指令</span>
+        <span>硬件去执行</span>
+        <span>屏幕显示出来</span>
+      </div>
+    </section>
+
+    <section class="block">
+      <h2>几个开关，就能记一个数</h2>
+      <p>举起来是 1，放下是 0。点一张卡片试试。下一课我们用它们记年龄、字母和颜色。</p>
+      <div class="cards" id="mini"></div>
+      <p>现在这几位是 <strong id="mini-dec">11</strong>。</p>
+      <button type="button" id="to-lesson-2">去第 2 课，把数字存进去</button>
+    </section>
+  </div>
+
+  <div id="lesson2" hidden>
+    <section class="block">
+      <h2>点卡片</h2>
+      <p>朝上的点要加进去，扣过去的不算。从右边起，每一位都是左边的两倍。这里没有 2 这个数字，只有 0 和 1。</p>
+      <div class="pills">
+        <button type="button" data-width="4">四张卡片 · 0 到 15</button>
+        <button type="button" data-width="5" aria-pressed="true">五张点卡 · 可以记日子</button>
+        <button type="button" data-width="8">一个字节 · 8 个开关</button>
+      </div>
+      <div class="cards" id="cards"></div>
+      <p class="muted" id="width-hint">五张卡片能记 0 到 31。生日是几号，通常放得下。</p>
+    </section>
+
+    <section class="block">
+      <h2>四种读法</h2>
+      <p>改任意一格，卡片都会跟着翻。计算机用二进制。八进制、十六进制是给人看的缩写。</p>
+      <div class="reads">
+        <label class="field">十进制<input id="dec" inputmode="numeric" autocomplete="off" aria-label="十进制"></label>
+        <label class="field">二进制<input id="bin" class="mono" autocomplete="off" spellcheck="false" aria-label="二进制"></label>
+        <label class="field">八进制<input id="oct" class="mono" autocomplete="off" spellcheck="false" aria-label="八进制"></label>
+        <label class="field">十六进制<input id="hex" class="mono" autocomplete="off" spellcheck="false" aria-label="十六进制"></label>
+        <label class="field">字母<input id="letter" maxlength="1" autocomplete="off" aria-label="字母"></label>
+      </div>
+      <h3>从右边分组</h3>
+      <p class="muted">每 4 位合成一个十六进制数字（0–9，然后 A=10 … F=15）。每 3 位合成一个八进制数字（0–7）。</p>
+      <p>十六进制 <span id="hex-inline" class="mono"></span></p>
+      <div class="chunks" id="hex-chunks"></div>
+      <p>八进制 <span id="oct-inline" class="mono"></span></p>
+      <div class="chunks" id="oct-chunks"></div>
+    </section>
+
+    <section class="block">
+      <h2>同一串开关，三种意思</h2>
+      <p>计算机不「认识」文字或图画。它只处理这些位。软件告诉它：这一次当数字，下一次当字母，再下一次当一排点。</p>
+      <div class="contexts">
+        <article>
+          <h3>当数字</h3>
+          <p class="big" id="as-number">11</p>
+        </article>
+        <article>
+          <h3>当字母</h3>
+          <p class="big" id="as-letter">·</p>
+          <p id="letter-note" class="muted"></p>
+        </article>
+        <article>
+          <h3>当一行点</h3>
+          <div id="as-pixels"></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="block">
+      <h2>颜色是三个字节</h2>
+      <p>网页上的 <span class="mono">#FF0000</span> 是纯红。FF 是红色开到最大，00 是没有绿，也没有蓝。一个字节写成两位十六进制，正好。</p>
+      <div class="swatch" id="swatch">#FF0000</div>
+      <div class="presets" id="presets"></div>
+      <div class="chan"><span>红</span><div id="redBits" class="bits"></div><input id="redHex" class="mono" maxlength="4" autocomplete="off" spellcheck="false" aria-label="红色"></div>
+      <div class="chan"><span>绿</span><div id="greenBits" class="bits"></div><input id="greenHex" class="mono" maxlength="4" autocomplete="off" spellcheck="false" aria-label="绿色"></div>
+      <div class="chan"><span>蓝</span><div id="blueBits" class="bits"></div><input id="blueHex" class="mono" maxlength="4" autocomplete="off" spellcheck="false" aria-label="蓝色"></div>
+    </section>
+
+    <section class="block">
+      <h2>八行点，就是一张小画</h2>
+      <p>每一行也是一个字节。点一个格子，或者改右边的两位十六进制。</p>
+      <div class="pixwrap">
+        <div id="grid"></div>
+        <div id="rowhexes"></div>
+      </div>
+      <div class="tools">
+        <button type="button" data-stamp="smile">笑脸</button>
+        <button type="button" data-stamp="heart">心</button>
+        <button type="button" data-stamp="a">字母 A</button>
+        <button type="button" data-stamp="clear">擦掉</button>
+        <button type="button" id="byte-to-row">用上面这个字节当第一行</button>
+        <button type="button" id="row-to-byte">用第一行当上面的字节</button>
+      </div>
+      <p class="muted">小作业：把家里某个人的年龄写成二进制，或者找一个网页颜色代码，填进上面的格子。</p>
+    </section>
+  </div>
+
+  <section class="aura" id="aura">
+    <h2>双向预览</h2>
+    <p>上面的灯、卡片、颜色和像素，都是在读下面这段 Aura。翻一张卡片，程序里的 0 和 1 会跟着变。改这些 0 和 1，再按「用这段程序更新画面」，卡片会跟着翻。</p>
+    <p class="muted">程序里只放开关。<span class="mono">#FF0000</span> 这种写法填在上面的颜色格里，Aura 会把它换成 0 和 1。同一段也写在 <span class="mono">runtime/live.aura</span>，用编辑器改完再按「从文件读回来」。</p>
+    <textarea id="source" spellcheck="false" aria-label="Aura 程序"></textarea>
+    <div class="tools">
+      <button type="button" id="apply">用这段程序更新画面</button>
+      <button type="button" id="revert">放弃修改</button>
+      <button type="button" id="reload">从文件读回来</button>
+    </div>
+    <p class="sync" id="sync">画面和程序一致</p>
+  </section>
+  <footer>果果编程课 · 二进制是计算机的母语，八进制和十六进制是缩写，信息是位加上怎么解释它。</footer>
+</div>
+<script>
+const story = [
+  ["算盘和齿轮", "很早以前，人用算盘和齿轮记数。很慢，但是已经知道：把数记下来，就能接着算。"],
+  ["电子管", "电子管像一屋子巨大的发热灯泡。ENIAC 占满一个房间，还经常坏。"],
+  ["晶体管", "晶体管是黄豆那么大的开关。它可靠，体积和耗电都降下来，计算机才能变小。"],
+  ["集成电路", "后来人们把成千上万个开关印在一小片硅上。开关还是开关，只是挤在一起。"],
+  ["今天的芯片", "现在一块指甲盖大小的芯片里，有上百亿个开关。越来越可靠的电开关，让计算机走进家里。"]
+];
+const colors = [
+  ["纯红", "ff0000"], ["纯绿", "00ff00"], ["纯蓝", "0000ff"],
+  ["黄色", "ffff00"], ["青色", "00ffff"], ["品红", "ff00ff"],
+  ["白色", "ffffff"], ["黑色", "000000"], ["橙色", "ff8800"]
+];
+const hints = {
+  4: "四张卡片是 0 到 15，正好一个十六进制数字：0 到 F。",
+  5: "五张卡片能记 0 到 31。生日是几号，通常放得下。",
+  8: "八个开关是一个字节，能记 0 到 255。一个字母、颜色里的一截，都是一个字节。"
+};
+
+let state = null;
+let draft = false;
+let chain = Promise.resolve();
+let pixelsReady = false;
+
+function post(cmd) {
+  const run = chain.then(() => send(cmd));
+  chain = run.catch(() => {});
+  return run;
+}
+
+async function send(cmd) {
+  let res;
+  try {
+    res = await fetch("/api", {
+      method: "POST",
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+      body: cmd
+    });
+  } catch (err) {
+    toast("和 Aura 断了。看一下终端里的开关课还在不在。");
+    throw err;
+  }
+  if (!res.ok) {
+    toast("Aura 没有接住这一下。");
+    throw new Error("status");
+  }
+  applyState(await res.json());
+}
+
+function applyState(data) {
+  state = data;
+  render();
+  const note = document.getElementById("note");
+  if (data.note) {
+    note.hidden = false;
+    note.textContent = data.note;
+  } else {
+    note.hidden = true;
+  }
+  toast(data.ok ? "" : (data.error || "没有做成"));
+  if (!draft) {
+    document.getElementById("source").value = data.source || "";
+    sync("画面和程序一致");
+  } else {
+    sync("程序还没应用。画面若已经变了，应用或放弃后会对齐。");
+  }
+}
+
+function toast(msg) {
+  const el = document.getElementById("toast");
+  el.hidden = !msg;
+  el.textContent = msg || "";
+}
+
+function sync(msg) {
+  document.getElementById("sync").textContent = msg;
+}
+
+function setField(id, value) {
+  const el = document.getElementById(id);
+  if (!el || document.activeElement === el) return;
+  el.value = value;
+}
+
+function showLesson(n) {
+  document.getElementById("lesson1").hidden = n !== 1;
+  document.getElementById("lesson2").hidden = n !== 2;
+  document.querySelectorAll("[data-tab]").forEach((b) => {
+    b.setAttribute("aria-selected", b.dataset.tab === String(n) ? "true" : "false");
+  });
+  const url = new URL(location.href);
+  if (n === 2) url.searchParams.set("lesson", "2");
+  else url.searchParams.delete("lesson");
+  history.replaceState(null, "", url);
+}
+
+function renderCards(host, bits) {
+  host.replaceChildren();
+  for (let i = 0; i < bits.length; i++) {
+    const weight = 2 ** (bits.length - 1 - i);
+    const on = bits[i] === "1";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "card" + (on ? " on" : "");
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+    btn.setAttribute("aria-label", weight + (on ? " 开着" : " 关着"));
+    const dots = document.createElement("div");
+    dots.className = "dots";
+    if (!on) {
+      dots.classList.add("back");
+      dots.textContent = "关";
+    } else if (weight > 16) {
+      dots.classList.add("numeral");
+      dots.textContent = String(weight);
+    } else {
+      const cols = weight === 1 ? 1 : weight === 2 ? 2 : weight === 8 ? 4 : 2;
+      if (weight === 16) dots.style.gridTemplateColumns = "repeat(4, 8px)";
+      else dots.style.gridTemplateColumns = "repeat(" + cols + ", 8px)";
+      for (let d = 0; d < weight; d++) dots.append(document.createElement("i"));
+    }
+    const cap = document.createElement("span");
+    cap.className = "place";
+    cap.textContent = String(weight);
+    btn.append(dots, cap);
+    btn.addEventListener("click", () => post("flip " + i));
+    host.append(btn);
+  }
+}
+
+function renderChunks(id, parts) {
+  const host = document.getElementById(id);
+  host.replaceChildren();
+  (parts || []).forEach((p, i) => {
+    const box = document.createElement("div");
+    box.className = "chunk c" + (i % 3);
+    const bits = document.createElement("span");
+    bits.className = "cbits";
+    bits.textContent = p.bits;
+    const digit = document.createElement("span");
+    digit.className = "cdigit";
+    digit.textContent = p.digit;
+    box.append(bits, digit);
+    host.append(box);
+  });
+}
+
+function paintBits(host, bits) {
+  [...host.children].forEach((b, i) => b.classList.toggle("on", bits[i] === "1"));
+}
+
+function ensureBuilt() {
+  if (pixelsReady) return;
+  pixelsReady = true;
+  ["red", "green", "blue"].forEach((name) => {
+    const host = document.getElementById(name + "Bits");
+    for (let i = 0; i < 8; i++) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "bit";
+      b.setAttribute("aria-label", name + " 第 " + (i + 1) + " 位");
+      b.addEventListener("click", () => post("chan " + name + " flip " + i));
+      host.append(b);
+    }
+  });
+  const grid = document.getElementById("grid");
+  const hexes = document.getElementById("rowhexes");
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "px";
+      b.dataset.r = String(r);
+      b.dataset.c = String(c);
+      b.setAttribute("aria-label", "第 " + (r + 1) + " 行第 " + (c + 1) + " 点");
+      b.addEventListener("click", () => post("pix " + r + " " + c));
+      grid.append(b);
+    }
+    const hex = document.createElement("input");
+    hex.id = "rowhex" + r;
+    hex.className = "mono";
+    hex.maxLength = 2;
+    hex.autocomplete = "off";
+    hex.spellcheck = false;
+    hex.setAttribute("aria-label", "第 " + (r + 1) + " 行十六进制");
+    hex.addEventListener("change", () => post("row " + r + " hex " + hex.value));
+    hexes.append(hex);
+  }
+}
+
+function renderPixels(bits) {
+  const host = document.getElementById("as-pixels");
+  host.replaceChildren();
+  for (const ch of bits) {
+    const dot = document.createElement("i");
+    if (ch === "1") dot.className = "on";
+    host.append(dot);
+  }
+}
+
+function contrast(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const y = (r * 299 + g * 587 + b * 114) / 1000;
+  return y > 150 ? "#1f1a14" : "#fffdf8";
+}
+
+function render() {
+  if (!state) return;
+  ensureBuilt();
+  const on = state.lamp === 1;
+  const lamp = document.getElementById("lamp");
+  lamp.classList.toggle("on", on);
+  lamp.setAttribute("aria-pressed", on ? "true" : "false");
+  document.getElementById("volt").textContent = on ? "约 5V · 开 · 1" : "约 0V · 关 · 0";
+  renderCards(document.getElementById("cards"), state.bits);
+  renderCards(document.getElementById("mini"), state.bits);
+  document.getElementById("mini-dec").textContent = String(state.dec);
+  document.querySelectorAll("[data-width]").forEach((b) => {
+    b.setAttribute("aria-pressed", Number(b.dataset.width) === state.width ? "true" : "false");
+  });
+  document.getElementById("width-hint").textContent = hints[state.width] || "";
+  setField("dec", String(state.dec));
+  setField("bin", state.bits);
+  setField("oct", state.oct);
+  setField("hex", state.hex);
+  setField("letter", state.letter || "");
+  document.getElementById("hex-inline").textContent = state.hex;
+  document.getElementById("oct-inline").textContent = state.oct;
+  renderChunks("hex-chunks", state.hexChunks);
+  renderChunks("oct-chunks", state.octChunks);
+  document.getElementById("as-number").textContent = String(state.dec);
+  document.getElementById("as-letter").textContent = state.letter || "·";
+  document.getElementById("letter-note").textContent = state.letterNote || "";
+  renderPixels(state.bits);
+  const swatch = document.getElementById("swatch");
+  swatch.textContent = state.color;
+  swatch.style.background = state.color;
+  swatch.style.color = contrast(state.color);
+  setField("redHex", state.redHex);
+  setField("greenHex", state.greenHex);
+  setField("blueHex", state.blueHex);
+  paintBits(document.getElementById("redBits"), state.redBits);
+  paintBits(document.getElementById("greenBits"), state.greenBits);
+  paintBits(document.getElementById("blueBits"), state.blueBits);
+  document.querySelectorAll(".px").forEach((b) => {
+    const row = state.rows[Number(b.dataset.r)] || "";
+    b.classList.toggle("on", row[Number(b.dataset.c)] === "1");
+  });
+  state.rowHex.forEach((hex, r) => setField("rowhex" + r, hex));
+  document.getElementById("byte-to-row").hidden = state.width !== 8;
+}
+
+function bindField(id, build) {
+  const el = document.getElementById(id);
+  el.addEventListener("change", () => post(build(el.value)));
+  el.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") el.blur();
+  });
+}
+
+function bootStory() {
+  const rail = document.getElementById("story-rail");
+  story.forEach((step, i) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = String(i + 1);
+    b.setAttribute("aria-label", step[0]);
+    if (i === 0) b.className = "on";
+    b.addEventListener("click", () => {
+      document.getElementById("story-title").textContent = step[0];
+      document.getElementById("story-body").textContent = step[1];
+      [...rail.children].forEach((kid, k) => kid.classList.toggle("on", k === i));
+    });
+    rail.append(b);
+  });
+}
+
+function bootPresets() {
+  const host = document.getElementById("presets");
+  colors.forEach(([name, hex]) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = name;
+    b.style.borderBottom = "4px solid #" + hex;
+    b.addEventListener("click", () => post("color " + hex));
+    host.append(b);
+  });
+}
+
+document.querySelectorAll("[data-tab]").forEach((b) => {
+  b.addEventListener("click", () => showLesson(Number(b.dataset.tab)));
+});
+document.getElementById("to-lesson-2").addEventListener("click", () => showLesson(2));
+document.getElementById("lamp").addEventListener("click", () => {
+  post("lamp " + (state && state.lamp ? "0" : "1"));
+});
+document.querySelectorAll("[data-width]").forEach((b) => {
+  b.addEventListener("click", () => post("width " + b.dataset.width));
+});
+document.querySelectorAll("[data-stamp]").forEach((b) => {
+  b.addEventListener("click", () => post("stamp " + b.dataset.stamp));
+});
+document.getElementById("byte-to-row").addEventListener("click", () => {
+  if (state && state.width === 8) post("row 0 bin " + state.bits);
+});
+document.getElementById("row-to-byte").addEventListener("click", () => {
+  if (state && state.rows && state.rows[0]) post("set bin " + state.rows[0]);
+});
+bindField("dec", (v) => "set dec " + v.trim());
+bindField("bin", (v) => "set bin " + v.trim());
+bindField("oct", (v) => "set oct " + v.trim());
+bindField("hex", (v) => "set hex " + v.trim());
+bindField("letter", (v) => "set letter " + v);
+bindField("redHex", (v) => "chan red hex " + v.trim());
+bindField("greenHex", (v) => "chan green hex " + v.trim());
+bindField("blueHex", (v) => "chan blue hex " + v.trim());
+
+document.getElementById("source").addEventListener("input", () => {
+  draft = true;
+  sync("程序改了，还没应用到画面。");
+});
+document.getElementById("apply").addEventListener("click", () => {
+  const text = document.getElementById("source").value;
+  post(text).then(() => {
+    if (state && state.ok) {
+      draft = false;
+      document.getElementById("source").value = state.source;
+      sync("画面和程序一致");
+    }
+  });
+});
+document.getElementById("revert").addEventListener("click", () => {
+  draft = false;
+  if (state) {
+    document.getElementById("source").value = state.source;
+    sync("画面和程序一致");
+  }
+});
+document.getElementById("reload").addEventListener("click", () => {
+  draft = false;
+  post("reload");
+});
+
+setInterval(() => {
+  const el = document.getElementById("dimmer");
+  const base = Number(el.value) / 10;
+  const wobble = Math.sin(Date.now() / 180) * 0.18;
+  document.getElementById("analog").textContent = (base + wobble).toFixed(2) + " V";
+}, 90);
+
+bootStory();
+bootPresets();
+showLesson(new URLSearchParams(location.search).get("lesson") === "2" ? 2 : 1);
+chain = fetch("/api/state")
+  .then((res) => res.json())
+  .then((data) => applyState(data))
+  .catch(() => toast("还没连上 Aura。用 make run 打开开关课，再刷新这一页。"));
+</script>
+</body>
+</html>

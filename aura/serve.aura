@@ -1,0 +1,240 @@
+; 回环上的开关课。Aura 持有位，浏览器只预览。
+; GET / 页面，GET /api/state，POST /api 一行命令或一段 (define ...)。
+; string-length 按码点计，HTTP 的 Content-Length 按字节计。
+
+(require "std/socket" all:)
+(require "aura/bits" all:)
+
+(define *state* (bits:fresh))
+(define *note* "")
+(define *page* "")
+(define *live* "runtime/live.aura")
+(define *port-file* "runtime/port")
+
+(define (serve:env name default)
+  (let ((v (getenv name)))
+    (if (and (string? v) (> (string-length v) 0)) v default)))
+
+(define (serve:port)
+  (let ((n (string->number (serve:env "GUOGUO_PORT" "8765") 10)))
+    (if (and (integer? n) (>= n 0) (<= n 65535)) n 8765)))
+
+(define (serve:cat parts)
+  (let ((out "") (p parts))
+    (while (lambda () (pair? p))
+      (lambda ()
+        (set! out (string-append out (car p)))
+        (set! p (cdr p))))
+    out))
+
+(define (serve:utf8-len s)
+  (let ((n (string-length s)) (i 0) (b 0))
+    (while (lambda () (< i n))
+      (lambda ()
+        (let ((c (string-ref s i)))
+          (set! b (+ b (cond ((< c 128) 1) ((< c 2048) 2) ((< c 65536) 3) (#t 4))))
+          (set! i (+ i 1)))))
+    b))
+
+(define (serve:take-bytes s nbytes)
+  (let ((n (string-length s)) (i 0) (b 0) (stop #f))
+    (while (lambda () (and (not stop) (< i n) (< b nbytes)))
+      (lambda ()
+        (let ((c (string-ref s i)))
+          (let ((nb (cond ((< c 128) 1) ((< c 2048) 2) ((< c 65536) 3) (#t 4))))
+            (if (> (+ b nb) nbytes)
+              (set! stop #t)
+              (begin (set! b (+ b nb)) (set! i (+ i 1))))))))
+    (if (= i 0) "" (substring s 0 i))))
+
+(define (serve:find-cl head)
+  (let ((a (string-index head "Content-Length:" 0)))
+    (if (>= a 0) a
+      (let ((b (string-index head "content-length:" 0)))
+        (if (>= b 0) b -1)))))
+
+(define (serve:content-length buf header-end)
+  (let ((head (substring buf 0 header-end)))
+    (let ((p (serve:find-cl head)))
+      (if (< p 0) 0
+        (let ((i (+ p 15)) (n (string-length head)) (num ""))
+          (while (lambda () (and (< i n)
+                                 (or (= (string-ref head i) 32) (= (string-ref head i) 9))))
+            (lambda () (set! i (+ i 1))))
+          (while (lambda () (and (< i n)
+                                 (>= (string-ref head i) 48)
+                                 (<= (string-ref head i) 57)))
+            (lambda ()
+              (set! num (string-append num (list->string (list (string-ref head i)))))
+              (set! i (+ i 1))))
+          (let ((v (if (equal? num "") #f (string->number num 10))))
+            (if (integer? v) v 0)))))))
+
+(define (serve:header-end buf) (string-index buf "\r\n\r\n" 0))
+
+(define (serve:complete? buf)
+  (let ((h (serve:header-end buf)))
+    (if (< h 0) #f
+      (let ((need (serve:content-length buf h))
+            (rest (substring buf (+ h 4) (string-length buf))))
+        (>= (serve:utf8-len rest) need)))))
+
+(define (serve:read sock)
+  (let ((buf "") (done #f) (guard 0))
+    (while (lambda () (and (not done) (< guard 8)))
+      (lambda ()
+        (set! guard (+ guard 1))
+        (if (serve:complete? buf)
+          (set! done #t)
+          (let ((chunk (tcp-recv sock 65536)))
+            (if (and (string? chunk) (> (string-length chunk) 0))
+              (set! buf (string-append buf chunk))
+              (set! done #t))))))
+    buf))
+
+(define (serve:first-line req)
+  (let ((p (string-index req "\r\n" 0)))
+    (if (< p 0) req (substring req 0 p))))
+
+(define (serve:method line)
+  (let ((p (string-index line " " 0)))
+    (if (< p 0) "" (substring line 0 p))))
+
+(define (serve:path line)
+  (let ((p (string-index line " " 0)))
+    (if (< p 0) "/"
+      (let ((rest (substring line (+ p 1) (string-length line))))
+        (let ((q (string-index rest " " 0)))
+          (let ((path (if (< q 0) rest (substring rest 0 q))))
+            (let ((h (string-index path "?" 0)))
+              (if (< h 0) path (substring path 0 h)))))))))
+
+(define (serve:body req)
+  (let ((h (serve:header-end req)))
+    (if (< h 0) ""
+      (let ((need (serve:content-length req h))
+            (rest (substring req (+ h 4) (string-length req))))
+        (if (<= need 0) "" (serve:take-bytes rest need))))))
+
+(define (serve:send-all sock data)
+  (let ((n (string-length data)) (i 0) (ok #t))
+    (while (lambda () (and ok (< i n)))
+      (lambda ()
+        (let ((j i) (bytes 0) (stop #f))
+          (while (lambda () (and (not stop) (< j n) (< bytes 4096)))
+            (lambda ()
+              (let ((c (string-ref data j)))
+                (let ((nb (cond ((< c 128) 1) ((< c 2048) 2) ((< c 65536) 3) (#t 4))))
+                  (if (and (> bytes 0) (> (+ bytes nb) 4096))
+                    (set! stop #t)
+                    (begin (set! bytes (+ bytes nb)) (set! j (+ j 1))))))))
+          (let ((sent (tcp-send sock (substring data i j))))
+            (if (and (integer? sent) (= sent bytes))
+              (set! i j)
+              (set! ok #f))))))
+    ok))
+
+(define (serve:respond sock status type body)
+  (let ((head (serve:cat (list
+                "HTTP/1.1 " status "\r\n"
+                "Content-Type: " type "\r\n"
+                "Content-Length: " (number->string (serve:utf8-len body)) "\r\n"
+                "Connection: close\r\n"
+                "Cache-Control: no-store\r\n"
+                "\r\n"))))
+    (if (not (serve:send-all sock (string-append head body)))
+      (display "发送中断\n"))))
+
+(define (serve:commit r)
+  (if (bits:ok? r)
+    (begin
+      (set! *state* (bits:result r))
+      (set! *note* "")
+      (write-file *live* (bits:source *state*))))
+  r)
+
+(define (serve:reload)
+  (let ((text (read-file *live*)))
+    (if (string? text)
+      (bits:command *state* text)
+      (bits:fail "还没有保存的程序" *state*))))
+
+(define (serve:post sock req)
+  (let ((body (serve:body req)))
+    (if (> (string-length body) 20000)
+      (serve:respond sock "400 Bad Request" "text/plain; charset=utf-8" "太长了\n")
+      (let ((r (if (equal? (bits:trim body) "reload")
+                 (serve:reload)
+                 (bits:command *state* body))))
+        (serve:commit r)
+        (serve:respond sock "200 OK" "application/json; charset=utf-8"
+          (bits:json (bits:result r) (bits:ok? r) (bits:error r) *note*))))))
+
+(define (serve:handle sock)
+  (let ((req (serve:read sock)))
+    (if (or (not (string? req)) (= (string-length req) 0))
+      #t
+      (let ((line (serve:first-line req)))
+        (let ((method (serve:method line)) (path (serve:path line)))
+          (cond
+            ((and (equal? method "GET")
+                  (or (equal? path "/") (equal? path "/index.html")))
+             (serve:respond sock "200 OK" "text/html; charset=utf-8" *page*))
+            ((and (equal? method "GET") (equal? path "/api/state"))
+             (serve:respond sock "200 OK" "application/json; charset=utf-8"
+               (bits:json *state* #t "" *note*)))
+            ((and (equal? method "POST") (equal? path "/api"))
+             (serve:post sock req))
+            (#t
+             (serve:respond sock "404 Not Found" "text/plain; charset=utf-8"
+               "没有这一页\n"))))))))
+
+(define (serve:loop listener)
+  (while (lambda () #t)
+    (lambda ()
+      (let ((client (tcp-accept listener)))
+        (if (integer? client)
+          (begin
+            (serve:handle client)
+            (tcp-close client)))))))
+
+(define (serve:boot)
+  (let ((prev (read-file *live*)))
+    (if (string? prev)
+      (let ((r (bits:command *state* prev)))
+        (if (bits:ok? r)
+          (begin
+            (set! *state* (bits:result r))
+            (write-file *live* (bits:source *state*)))
+          (set! *note* "上次保存的程序读不懂，先用新的开关。再动一次才会覆盖那个文件。")))
+      (write-file *live* (bits:source *state*)))))
+
+(define (serve:start)
+  (set! *page* (read-file "web/index.html"))
+  (if (not (string? *page*))
+    (begin
+      (display "找不到 web/index.html，请在 guoguo 仓库根目录运行。\n")
+      (exit 1)))
+  (let ((dir (serve:env "GUOGUO_RUNTIME" "runtime")))
+    (set! *live* (string-append dir "/live.aura"))
+    (set! *port-file* (string-append dir "/port")))
+  (serve:boot)
+  (let ((listener (tcp-listen (serve:port))))
+    (if (not (integer? listener))
+      (begin
+        (display "端口打不开。换一个 GUOGUO_PORT 再试。\n")
+        (exit 1))
+      (let ((port (tcp-local-port listener)))
+        (if (not (integer? port))
+          (begin (display "不知道端口。\n") (exit 1))
+          (begin
+            (write-file *port-file* (string-append (number->string port) "\n"))
+            (display (string-append
+                       "果果的开关课已经打开\n在浏览器里打开 http://127.0.0.1:"
+                       (number->string port)
+                       "\n第 2 课直接打开 http://127.0.0.1:"
+                       (number->string port)
+                       "/?lesson=2\n按 Ctrl+C 结束\n"))
+            (serve:loop listener)))))))
+
+(serve:start)
