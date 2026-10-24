@@ -4,10 +4,11 @@
 ; red / green / blue 和 rows 里的每一行都是 0 到 255。
 ; 卡片从左到右，下标 0 是最高位。
 
-(export bits:fresh bits:command bits:ok? bits:error bits:result
-        bits:source bits:json bits:hex bits:oct bits:from-int bits:letter
-        bits:lamp bits:width bits:value bits:red bits:green bits:blue
-        bits:rows bits:nth bits:hex-grouped bits:oct-grouped bits:trim)
+(export bits:fresh bits:command bits:ok bits:fail bits:ok? bits:error bits:result
+        bits:source bits:json bits:json-view bits:hex bits:oct bits:from-int
+        bits:letter bits:lamp bits:width bits:value bits:red bits:green
+        bits:blue bits:rows bits:nth bits:hex-grouped bits:oct-grouped
+        bits:trim bits:field bits:apply-fields bits:reverse bits:cat)
 
 (define (bits:ok state) (list #t "" state))
 (define (bits:fail msg state) (list #f msg state))
@@ -565,7 +566,30 @@
           (let ((j (+ i 1)))
             (while (lambda () (and (< j n) (not (= (string-ref src j) 34))))
               (lambda () (set! j (+ j 1))))
-            (if (>= j n) #f (substring src (+ i 1) j))))))))
+            (if (>= j n) #f (bits:unescape (substring src (+ i 1) j)))))))))
+
+(define (bits:unescape-one d)
+  (cond
+    ((= d 110) (bits:ch 10))
+    ((= d 114) (bits:ch 13))
+    ((= d 116) (bits:ch 9))
+    ((or (= d 34) (= d 92)) (bits:ch d))
+    (#t #f)))
+
+(define (bits:unescape s)
+  (let ((n (string-length s)) (i 0) (out ""))
+    (while (lambda () (< i n))
+      (lambda ()
+        (if (and (= (string-ref s i) 92) (< (+ i 1) n))
+          (let ((one (bits:unescape-one (string-ref s (+ i 1)))))
+            (if (string? one)
+              (set! out (string-append out one))
+              (set! out (string-append out (substring s i (+ i 2)))))
+            (set! i (+ i 2)))
+          (begin
+            (set! out (string-append out (bits:ch (string-ref s i))))
+            (set! i (+ i 1))))))
+    out))
 
 (define (bits:apply-fields state lamp width bits red green blue pixels)
   (let ((w (bits:nat width 10)))
@@ -693,7 +717,28 @@
                   (bits:hex (bits:green state) 8)
                   (bits:hex (bits:blue state) 8))))
 
+(define (bits:json-nodes nodes)
+  (let ((out "[") (p nodes) (first #t))
+    (while (lambda () (pair? p))
+      (lambda ()
+        (let ((row (car p)))
+          (if first
+            (set! first #f)
+            (set! out (string-append out ",")))
+          (set! out (bits:cat (list out
+            "{\"name\":" (bits:json-string (bits:nth row 0))
+            ",\"define\":" (number->string (bits:nth row 1))
+            ",\"literal\":" (number->string (bits:nth row 2))
+            ",\"text\":" (bits:json-string (bits:nth row 3))
+            ",\"changed\":" (if (= (bits:nth row 4) 1) "true" "false")
+            "}"))))
+        (set! p (cdr p))))
+    (string-append out "]")))
+
 (define (bits:json state ok? err note)
+  (bits:json-view state ok? err note (bits:source state) (bits:source state) "" (list)))
+
+(define (bits:json-view state ok? err note source workspace mut nodes)
   (let ((w (bits:width state)) (v (bits:value state)))
     (let ((b (bits:from-int v w))
           (hg (bits:groups-right b 4))
@@ -729,6 +774,9 @@
           (bits:cat (list "\"rowHex\":" (bits:json-strings (bits:row-hexes rows))))
           (bits:cat (list "\"hexChunks\":" (bits:json-pairs (car hg) (cdr hg))))
           (bits:cat (list "\"octChunks\":" (bits:json-pairs (car og) (cdr og))))
-          (bits:cat (list "\"source\":" (bits:json-string (bits:source state)))))
+          (bits:cat (list "\"source\":" (bits:json-string source)))
+          (bits:cat (list "\"workspace\":" (bits:json-string workspace)))
+          (bits:cat (list "\"mut\":" (bits:json-string mut)))
+          (bits:cat (list "\"nodes\":" (bits:json-nodes nodes))))
           ",")
         "}")))))

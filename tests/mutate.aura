@@ -1,0 +1,88 @@
+; 工作区里的字面量才是开关。set-code 只发生一次，之后是 replace-value。
+(require "aura/bits" all:)
+(require "aura/board" all:)
+
+(define *fails* 0)
+
+(define (expect name got want)
+  (if (equal? got want)
+    #t
+    (begin
+      (set! *fails* (+ *fails* 1))
+      (display "FAIL ")
+      (display name)
+      (display " / got ")
+      (display got)
+      (display " / want ")
+      (display want)
+      (newline))))
+
+(define (def-id name) (car (query :find name)))
+
+(define (lit-id name)
+  (car (query :children (def-id name))))
+
+(define (lit-text name)
+  (let ((node (query :node (lit-id name))))
+    (car (cdr node))))
+
+(define (snap-row name rows)
+  (let ((p rows) (hit #f))
+    (while (lambda () (and (not hit) (pair? p)))
+      (lambda ()
+        (if (string=? (car (car p)) name)
+          (set! hit (car p))
+          (set! p (cdr p)))))
+    hit))
+
+(if (not (equal? (board:install! "aura/board-seed.aura") #t))
+  (begin (display "MUTATE_FAIL pin\n") (exit 1)))
+
+(define st (board:state))
+(expect "dec" (bits:value st) 11)
+(expect "lamp" (bits:lamp st) 1)
+(expect "row" (bits:nth (bits:rows st) 0) 60)
+(expect "node" (lit-text "*bits*") "01011")
+(expect "has" (not (= (string-index (current-source :workspace) "(define *bits* \"01011\")" 0) -1)) #t)
+
+(define bits-lit (lit-id "*bits*"))
+(define bits-def (def-id "*bits*"))
+(define before (current-source :workspace))
+(define age (bits:command st "set dec 65"))
+(define wrote (board:commit! (bits:result age)))
+(expect "wrote" (and (string? wrote) (> (string-length wrote) 0)) #t)
+(expect "prefix" (and (string? wrote) (not (= (string-index wrote "replace-value #" 0) -1))) #t)
+(expect "mentions bits" (and (string? wrote) (not (= (string-index wrote "*bits*" 0) -1))) #t)
+(expect "mentions width" (and (string? wrote) (not (= (string-index wrote "*width*" 0) -1))) #t)
+(expect "node65" (lit-text "*bits*") "01000001")
+(expect "ws" (not (= (string-index (current-source :workspace) "(define *bits* \"01000001\")" 0) -1)) #t)
+(expect "moved" (equal? before (current-source :workspace)) #f)
+(expect "same lit" (lit-id "*bits*") bits-lit)
+(expect "same def" (def-id "*bits*") bits-def)
+(define row (snap-row "*bits*" (board:snapshot)))
+(expect "snap text" (bits:nth row 3) "01000001")
+(expect "snap lit" (bits:nth row 2) bits-lit)
+(expect "snap def" (bits:nth row 1) bits-def)
+(expect "snap changed" (bits:nth row 4) 1)
+(expect "lamp quiet" (bits:nth (snap-row "*lamp*" (board:snapshot)) 4) 0)
+
+(define pretty (board:pretty (current-source :workspace)))
+(define back (bits:command (board:state) pretty))
+(expect "round ok" (bits:ok? back) #t)
+(expect "round" (bits:value (bits:result back)) 65)
+(expect "noop" (board:commit! (board:state)) "")
+(expect "touch cleared" (bits:nth (snap-row "*bits*" (board:snapshot)) 4) 0)
+
+(define frozen (current-source :workspace))
+(define bad (bits:command (board:state) "set dec 999"))
+(expect "bad" (bits:ok? bad) #f)
+(expect "still" (equal? frozen (current-source :workspace)) #t)
+(expect "still bits" (lit-text "*bits*") "01000001")
+
+(if (= *fails* 0)
+  (begin (display "MUTATE_OK\n") (exit 0))
+  (begin
+    (display "MUTATE_FAIL ")
+    (display *fails*)
+    (newline)
+    (exit 1)))

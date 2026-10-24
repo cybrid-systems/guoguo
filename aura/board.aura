@@ -1,0 +1,210 @@
+; 开关课的工作区。七个字符串字面量是真值。
+; 服务启动时 set-code 装上 aura/board-seed.aura，之后只 replace-value。
+; replace-value 会把字面量标脏，增量编译走这一笔，不重做整棵程序。
+
+(require "aura/bits" all:)
+
+(export board:pin! board:state board:commit! board:pretty board:install!
+        board:snapshot board:forget-touch!)
+
+(define *ids* #f)
+(define *touched* (list))
+
+(define (board:ch c) (list->string (list c)))
+
+(define (board:names)
+  (list "*lamp*" "*width*" "*bits*" "*red*" "*green*" "*blue*" "*pixels*"))
+
+(define (board:lit-text id)
+  (let ((node (query :node id)))
+    (if (and (pair? node) (pair? (cdr node)) (string? (car (cdr node))))
+      (car (cdr node))
+      #f)))
+
+(define (board:literal-of name)
+  (let ((found (query :find name)))
+    (if (and (pair? found) (integer? (car found)))
+      (let ((kids (query :children (car found))))
+        (if (and (pair? kids) (integer? (car kids)))
+          (let ((text (board:lit-text (car kids))))
+            (if (string? text) (car kids) #f))
+          #f))
+      #f)))
+
+(define (board:pin!)
+  (let ((names (board:names)) (ids (list)) (ok #t))
+    (while (lambda () (and ok (pair? names)))
+      (lambda ()
+        (let ((id (board:literal-of (car names))))
+          (if (integer? id)
+            (set! ids (cons id ids))
+            (set! ok #f)))
+        (set! names (cdr names))))
+    (if ok
+      (begin (set! *ids* (bits:reverse ids)) #t)
+      #f)))
+
+(define (board:texts)
+  (if (not (pair? *ids*))
+    #f
+    (let ((p *ids*) (out (list)) (ok #t))
+      (while (lambda () (and ok (pair? p)))
+        (lambda ()
+          (let ((text (board:lit-text (car p))))
+            (if (string? text)
+              (set! out (cons text out))
+              (set! ok #f)))
+          (set! p (cdr p))))
+      (if ok (bits:reverse out) #f))))
+
+(define (board:state)
+  (let ((texts (board:texts)))
+    (if (not (pair? texts))
+      #f
+      (let ((r (bits:apply-fields (bits:fresh)
+                                  (car texts)
+                                  (bits:nth texts 1)
+                                  (bits:nth texts 2)
+                                  (bits:nth texts 3)
+                                  (bits:nth texts 4)
+                                  (bits:nth texts 5)
+                                  (bits:nth texts 6))))
+        (if (bits:ok? r) (bits:result r) #f)))))
+
+(define (board:want state)
+  (let ((src (bits:source state)))
+    (let ((lamp (bits:field src "lamp"))
+          (width (bits:field src "width"))
+          (bits (bits:field src "bits"))
+          (red (bits:field src "red"))
+          (green (bits:field src "green"))
+          (blue (bits:field src "blue"))
+          (pixels (bits:field src "pixels")))
+      (if (and (string? lamp) (string? width) (string? bits)
+               (string? red) (string? green) (string? blue) (string? pixels))
+        (list lamp width bits red green blue pixels)
+        #f))))
+
+(define (board:join xs sep)
+  (let ((out "") (p xs) (first #t))
+    (while (lambda () (pair? p))
+      (lambda ()
+        (if first
+          (begin (set! out (car p)) (set! first #f))
+          (set! out (bits:cat (list out sep (car p)))))
+        (set! p (cdr p))))
+    out))
+
+(define (board:define-id name)
+  (let ((found (query :find name)))
+    (if (and (pair? found) (integer? (car found)))
+      (car found)
+      #f)))
+
+(define (board:forget-touch!)
+  (set! *touched* (list))
+  #t)
+
+(define (board:touched? name)
+  (let ((p *touched*) (hit #f))
+    (while (lambda () (and (not hit) (pair? p)))
+      (lambda ()
+        (if (string=? (car p) name)
+          (set! hit #t)
+          (set! p (cdr p)))))
+    hit))
+
+(define (board:snapshot)
+  (if (not (pair? *ids*))
+    (list)
+    (let ((names (board:names)) (ids *ids*) (out (list)))
+      (while (lambda () (and (pair? names) (pair? ids)))
+        (lambda ()
+          (let ((def (board:define-id (car names)))
+                (lit (car ids))
+                (text (board:lit-text lit)))
+            (set! out (cons (list (car names)
+                                  (if (integer? def) def -1)
+                                  lit
+                                  (if (string? text) text "")
+                                  (if (board:touched? (car names)) 1 0))
+                            out)))
+          (set! names (cdr names))
+          (set! ids (cdr ids))))
+      (bits:reverse out))))
+
+(define (board:label changed)
+  (let ((info (mutation-log:summary)))
+    (let ((id (hash-ref info "last-mutation-id"))
+          (node (hash-ref info "last-target-node")))
+      (if (and (integer? id) (integer? node))
+        (bits:cat (list "replace-value #" (number->string id)
+                        "，改了工作区里的 " changed
+                        "。最后写进节点 " (number->string node)))
+        (string-append "replace-value，改了工作区里的 " changed)))))
+
+(define (board:commit! state)
+  (board:forget-touch!)
+  (let ((want (board:want state)) (ids *ids*))
+    (if (or (not (pair? want)) (not (pair? ids)))
+      #f
+      (let ((ops (list)) (changed (list)) (p ids) (w want) (names (board:names)) (ok #t))
+        (while (lambda () (and ok (pair? p) (pair? w) (pair? names)))
+          (lambda ()
+            (let ((now (board:lit-text (car p))))
+              (if (not (string? now))
+                (set! ok #f)
+                (if (not (string=? now (car w)))
+                  (begin
+                    (set! ops (cons (list "mutate:replace-value" (car p) (car w) "guoguo") ops))
+                    (set! changed (cons (car names) changed)))
+                  #t)))
+            (set! p (cdr p))
+            (set! w (cdr w))
+            (set! names (cdr names))))
+        (cond
+          ((not ok) #f)
+          ((not (pair? changed)) "")
+          (#t
+           (let ((names-changed (board:join (bits:reverse changed) "、")))
+             (if (not (equal? (mutate:atomic-batch (bits:reverse ops) "guoguo"
+                                                  :sync-query-index? #f) #t))
+               #f
+               (let ((back (board:texts)))
+                 (if (equal? back want)
+                   (begin
+                     (set! *touched* (bits:reverse changed))
+                     (board:label names-changed))
+                   #f))))))))))
+
+(define (board:pretty src)
+  (if (not (string? src))
+    ""
+    (let ((s src) (n (string-length src)))
+      (if (and (> n 0) (= (string-ref s (- n 1)) 10))
+        (begin (set! s (substring s 0 (- n 1))) (set! n (string-length s))))
+      (if (and (>= n 7) (string=? (substring s 0 7) "(begin "))
+        (set! s (substring s 7 (- n 1))))
+      (board:break s))))
+
+(define (board:break s)
+  (let ((key ") (define ") (n (string-length s)) (m 10) (i 0) (out ""))
+    (while (lambda () (< i n))
+      (lambda ()
+        (if (and (<= (+ i m) n) (string=? (substring s i (+ i m)) key))
+          (begin
+            (set! out (string-append out ")\n(define "))
+            (set! i (+ i m)))
+          (begin
+            (set! out (string-append out (board:ch (string-ref s i))))
+            (set! i (+ i 1))))))
+    out))
+
+(define (board:install! path)
+  (let ((text (read-file path)))
+    (if (not (string? text))
+      #f
+      (begin
+        (set-code text)
+        (eval-current)
+        (board:pin!)))))

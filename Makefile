@@ -15,6 +15,7 @@ doctor:
 
 check: doctor
 	cd "$(ROOT)" && "$(AURA_BIN)" tests/check.aura
+	cd "$(ROOT)" && "$(AURA_BIN)" tests/mutate.aura
 
 http: doctor
 	cd "$(ROOT)" && sh tests/http.sh

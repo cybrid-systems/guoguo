@@ -1,12 +1,15 @@
-; 回环上的开关课。Aura 持有位，浏览器只预览。
+; 回环上的开关课。真值是工作区里的七个字面量，浏览器只预览。
+; 启动时 set-code 装上 aura/board-seed.aura。之后每次改动是一次
+; mutate:replace-value，不把孩子贴来的正文再 set-code 进去。
 ; GET / 页面，GET /api/state，POST /api 一行命令或一段 (define ...)。
 ; string-length 按码点计，HTTP 的 Content-Length 按字节计。
 
 (require "std/socket" all:)
 (require "aura/bits" all:)
+(require "aura/board" all:)
 
-(define *state* (bits:fresh))
 (define *note* "")
+(define *mut* "")
 (define *page* "")
 (define *live* "runtime/live.aura")
 (define *port-file* "runtime/port")
@@ -145,30 +148,56 @@
     (if (not (serve:send-all sock (string-append head body)))
       (display "发送中断\n"))))
 
-(define (serve:commit r)
-  (if (bits:ok? r)
-    (begin
-      (set! *state* (bits:result r))
-      (set! *note* "")
-      (write-file *live* (bits:source *state*))))
-  r)
+(define (serve:view st ok? err)
+  (bits:json-view st ok? err *note*
+                  (board:pretty (current-source :workspace))
+                  (current-source :workspace)
+                  *mut*
+                  (board:snapshot)))
 
-(define (serve:reload)
+(define (serve:answer sock r)
+  (let ((st (bits:result r)))
+    (if (not (pair? st))
+      (serve:respond sock "500 Internal Server Error" "text/plain; charset=utf-8"
+                     "工作区读不出来\n")
+      (serve:respond sock "200 OK" "application/json; charset=utf-8"
+                     (serve:view st (bits:ok? r) (bits:error r))))))
+
+(define (serve:commit r)
+  (set! *mut* "")
+  (board:forget-touch!)
+  (if (not (bits:ok? r))
+    r
+    (let ((wrote (board:commit! (bits:result r))))
+      (cond
+        ((equal? wrote #f)
+         (let ((live (board:state)))
+           (bits:fail "工作区没有改成" (if (pair? live) live (bits:result r)))))
+        ((equal? wrote "") r)
+        (#t
+         (set! *mut* wrote)
+         (set! *note* "")
+         (write-file *live* (current-source :workspace))
+         (let ((live (board:state)))
+           (if (pair? live) (bits:ok live) (bits:fail "工作区读不出来" (bits:result r)))))))))
+
+(define (serve:reload now)
   (let ((text (read-file *live*)))
     (if (string? text)
-      (bits:command *state* text)
-      (bits:fail "还没有保存的程序" *state*))))
+      (bits:command now text)
+      (bits:fail "还没有保存的程序" now))))
 
 (define (serve:post sock req)
-  (let ((body (serve:body req)))
-    (if (> (string-length body) 20000)
-      (serve:respond sock "400 Bad Request" "text/plain; charset=utf-8" "太长了\n")
-      (let ((r (if (equal? (bits:trim body) "reload")
-                 (serve:reload)
-                 (bits:command *state* body))))
-        (serve:commit r)
-        (serve:respond sock "200 OK" "application/json; charset=utf-8"
-          (bits:json (bits:result r) (bits:ok? r) (bits:error r) *note*))))))
+  (let ((body (serve:body req)) (now (board:state)))
+    (if (not (pair? now))
+      (serve:respond sock "500 Internal Server Error" "text/plain; charset=utf-8"
+                     "工作区读不出来\n")
+      (if (> (string-length body) 20000)
+        (serve:respond sock "400 Bad Request" "text/plain; charset=utf-8" "太长了\n")
+        (let ((r (if (equal? (bits:trim body) "reload")
+                   (serve:reload now)
+                   (bits:command now body))))
+          (serve:answer sock (serve:commit r)))))))
 
 (define (serve:handle sock)
   (let ((req (serve:read sock)))
@@ -181,8 +210,15 @@
                   (or (equal? path "/") (equal? path "/index.html")))
              (serve:respond sock "200 OK" "text/html; charset=utf-8" *page*))
             ((and (equal? method "GET") (equal? path "/api/state"))
-             (serve:respond sock "200 OK" "application/json; charset=utf-8"
-               (bits:json *state* #t "" *note*)))
+             (let ((st (board:state)))
+               (if (not (pair? st))
+                 (serve:respond sock "500 Internal Server Error"
+                                "text/plain; charset=utf-8" "工作区读不出来\n")
+                 (begin
+                   (set! *mut* "")
+                   (board:forget-touch!)
+                   (serve:respond sock "200 OK" "application/json; charset=utf-8"
+                                  (serve:view st #t ""))))))
             ((and (equal? method "POST") (equal? path "/api"))
              (serve:post sock req))
             (#t
@@ -199,15 +235,23 @@
             (tcp-close client)))))))
 
 (define (serve:boot)
-  (let ((prev (read-file *live*)))
-    (if (string? prev)
-      (let ((r (bits:command *state* prev)))
-        (if (bits:ok? r)
-          (begin
-            (set! *state* (bits:result r))
-            (write-file *live* (bits:source *state*)))
-          (set! *note* "上次保存的程序读不懂，先用新的开关。再动一次才会覆盖那个文件。")))
-      (write-file *live* (bits:source *state*)))))
+  (if (not (equal? (board:install! "aura/board-seed.aura") #t))
+    (begin
+      (display "装不上开关工作区。请在 guoguo 仓库根目录运行。\n")
+      (exit 1)))
+  (let ((prev (read-file *live*)) (now (board:state)))
+    (if (not (pair? now))
+      (begin (display "工作区里的开关读不出来。\n") (exit 1))
+      (if (string? prev)
+        (let ((r (bits:command now prev)))
+          (if (bits:ok? r)
+            (let ((wrote (board:commit! (bits:result r))))
+              (if (equal? wrote #f)
+                (set! *note* "上次保存的程序读不懂，先用新的开关。再动一次才会覆盖那个文件。")
+                (if (not (equal? wrote ""))
+                  (write-file *live* (current-source :workspace)))))
+            (set! *note* "上次保存的程序读不懂，先用新的开关。再动一次才会覆盖那个文件。")))
+        (write-file *live* (current-source :workspace))))))
 
 (define (serve:start)
   (set! *page* (read-file "web/index.html"))

@@ -1,0 +1,9 @@
+;; 果果的开关课。这七个定义会被装进正在跑的工作区。
+;; 页面上的每一次改动都是 mutate:replace-value，改的是这里的字面量。
+(define *lamp* "1")
+(define *width* "5")
+(define *bits* "01011")
+(define *red* "11111111")
+(define *green* "00000000")
+(define *blue* "00000000")
+(define *pixels* "00111100\n01000010\n10100101\n10000001\n10100101\n10011001\n01000010\n00111100")

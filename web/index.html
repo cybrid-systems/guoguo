@@ -162,6 +162,21 @@
     font-size: 14px; line-height: 1.45;
   }
   .sync { margin: 8px 0 0; }
+  .nodes { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+  .node {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+    min-width: 108px; border: 1px solid var(--line); background: #fbf7f0;
+    border-radius: 14px; padding: 8px 10px; text-align: left;
+  }
+  .node b { font-size: 13px; }
+  .node .nid { color: #6d6256; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .node code { font-family: ui-monospace, "Source Code Pro", monospace; font-size: 13px; }
+  .node.changed { border-color: var(--coral); background: #fff1ea; }
+  .mut { margin: 0 0 8px; color: #8a3d12; font-weight: 700; }
+  #workspace {
+    white-space: pre-wrap; word-break: break-all; background: #f4efe4;
+    border-radius: 12px; padding: 12px; font-size: 13px;
+  }
   footer { margin-top: 18px; color: #6d6256; }
   @media (max-width: 800px) {
     .split, .people, .path, .contexts, .reads { grid-template-columns: 1fr; }
@@ -328,9 +343,15 @@
 
   <section class="aura" id="aura">
     <h2>双向预览</h2>
-    <p>上面的灯、卡片、颜色和像素，都是在读下面这段 Aura。翻一张卡片，程序里的 0 和 1 会跟着变。改这些 0 和 1，再按「用这段程序更新画面」，卡片会跟着翻。</p>
-    <p class="muted">程序里只放开关。<span class="mono">#FF0000</span> 这种写法填在上面的颜色格里，Aura 会把它换成 0 和 1。同一段也写在 <span class="mono">runtime/live.aura</span>，用编辑器改完再按「从文件读回来」。</p>
+    <p>上面的灯、卡片、颜色和像素，读的是正在跑的 Aura 工作区。翻一张卡片，Aura 用 replace-value 改掉对应的字面量，增量编译只重做这一小段。下面是工作区印出来的程序。</p>
+    <p class="muted">每一格是工作区里的一个字符串节点。翻卡片、改颜色，Aura 用 replace-value 改这一格里的字，定义和字面量的编号都不变。引号里的 <span class="mono">\n</span> 是一行像素的换行。点一格，会在下面选中对应的那一行。</p>
+    <div id="nodes" class="nodes" aria-label="工作区里的字面量节点"></div>
+    <p id="mut" class="mut" hidden></p>
     <textarea id="source" spellcheck="false" aria-label="Aura 程序"></textarea>
+    <details>
+      <summary>工作区原文</summary>
+      <pre id="workspace" class="mono"></pre>
+    </details>
     <div class="tools">
       <button type="button" id="apply">用这段程序更新画面</button>
       <button type="button" id="revert">放弃修改</button>
@@ -400,12 +421,59 @@ function applyState(data) {
     note.hidden = true;
   }
   toast(data.ok ? "" : (data.error || "没有做成"));
+  const mut = document.getElementById("mut");
+  if (data.mut) {
+    mut.hidden = false;
+    mut.textContent = data.mut;
+  } else {
+    mut.hidden = true;
+    mut.textContent = "";
+  }
+  document.getElementById("workspace").textContent = data.workspace || "";
+  renderNodes(data.nodes);
   if (!draft) {
     document.getElementById("source").value = data.source || "";
     sync("画面和程序一致");
   } else {
     sync("程序还没应用。画面若已经变了，应用或放弃后会对齐。");
   }
+}
+
+function shortText(text) {
+  const line = String(text || "").split("\n")[0];
+  return line.length > 16 ? line.slice(0, 16) + "…" : line;
+}
+
+function selectDefine(name) {
+  const src = document.getElementById("source");
+  const needle = "(define " + name;
+  const at = src.value.indexOf(needle);
+  if (at < 0) return;
+  const lineEnd = src.value.indexOf("\n", at);
+  src.focus();
+  src.setSelectionRange(at, lineEnd < 0 ? src.value.length : lineEnd);
+  sync(draft ? "程序改了，还没应用到画面。" : "选中的是 " + name + "。编号不变，变的是引号里的字。");
+}
+
+function renderNodes(nodes) {
+  const host = document.getElementById("nodes");
+  host.replaceChildren();
+  (nodes || []).forEach((n) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "node" + (n.changed ? " changed" : "");
+    const title = document.createElement("b");
+    title.textContent = n.name;
+    const id = document.createElement("span");
+    id.className = "nid";
+    id.textContent = "定义 " + n.define + " → 字 " + n.literal;
+    const text = document.createElement("code");
+    text.textContent = shortText(n.text);
+    b.setAttribute("aria-label", n.name + "，定义 " + n.define + "，字面量 " + n.literal);
+    b.append(title, id, text);
+    b.addEventListener("click", () => selectDefine(n.name));
+    host.append(b);
+  });
 }
 
 function toast(msg) {

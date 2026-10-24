@@ -98,6 +98,19 @@
 (define heart (state-of "stamp heart"))
 (expect "heart" (bits:nth (bits:rows heart) 0) 102)
 
+(define esc-src (bits:cat (list
+  "(define *lamp* \"1\")\n"
+  "(define *width* \"5\")\n"
+  "(define *bits* \"01011\")\n"
+  "(define *red* \"11111111\")\n"
+  "(define *green* \"00000000\")\n"
+  "(define *blue* \"00000000\")\n"
+  "(define *pixels* \"00111100\\n01000010\\n10100101\\n10000001\\n10100101\\n10011001\\n01000010\\n00111100\")")))
+(define esc (bits:command st esc-src))
+(expect "esc ok" (bits:ok? esc) #t)
+(expect "esc row" (bits:nth (bits:rows (bits:result esc)) 0) 60)
+(expect "esc value" (bits:value (bits:result esc)) 11)
+
 (define src (bits:source st))
 (expect "src bits" (not (= (string-index src "(define *bits* \"01011\")" 0) -1)) #t)
 (define back (bits:command st src))
@@ -117,6 +130,7 @@
 (expect "json hex" (not (= (string-index js "\"hex\":\"41\"" 0) -1)) #t)
 (expect "json letter" (not (= (string-index js "\"letter\":\"A\"" 0) -1)) #t)
 (expect "json color" (not (= (string-index js "\"color\":\"#FF0000\"" 0) -1)) #t)
+(expect "json nodes" (not (= (string-index js "\"nodes\":[]" 0) -1)) #t)
 
 (if (= *fails* 0)
   (begin (display "GUOGUO_OK\n") (exit 0))
