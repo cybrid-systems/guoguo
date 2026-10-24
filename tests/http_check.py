@@ -42,6 +42,26 @@ need('id="source"' in page, "page missing Aura source box")
 need("双向预览" in page, "page missing preview heading")
 need("replace-value" in page, "page missing mutation wording")
 need('id="nodes"' in page, "page missing node strip")
+need('data-course="switches"' in page, "page missing course id")
+need('id="course-bar"' in page, "page missing course bar")
+
+catalog = json.loads(fetch("/catalog.json").decode("utf-8"))
+listed = catalog.get("courses") or []
+need(any(c.get("id") == "switches" and c.get("href") == "/" for c in listed), catalog)
+courses_page = fetch("/courses.html").decode("utf-8")
+need('id="catalog"' in courses_page, "courses page missing catalog mount")
+bar = fetch("/course-bar.js")
+need(b"/catalog.json" in bar, "course bar script")
+try:
+    urllib.request.urlopen(base + "/no-such-course.html", timeout=10)
+    raise SystemExit("missing course page should 404")
+except urllib.error.HTTPError as err:
+    need(err.code == 404, f"missing course page status {err.code}")
+try:
+    urllib.request.urlopen(base + "/nested/secret.html", timeout=10)
+    raise SystemExit("nested path should 404")
+except urllib.error.HTTPError as err:
+    need(err.code == 404, f"nested path status {err.code}")
 
 try:
     urllib.request.urlopen(base + "/nope", timeout=10)

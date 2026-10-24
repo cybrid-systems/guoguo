@@ -25,7 +25,7 @@ make run
 make test
 ```
 
-`make check` 只算位和命令，不开网络。`make http` 会真的把页面和 `/api` 走一遍。
+`make catalog` 只对课程名册，不需要 Aura。`make check` 只算位和命令，不开网络。`make http` 会真的把页面和 `/api` 走一遍。`make test` 三样都跑。
 
 ## 目录
 
@@ -35,11 +35,24 @@ make test
 | `aura/board-seed.aura` | 装进工作区的七个定义 |
 | `aura/board.aura` | 钉住字面量节点，并用 replace-value 改它们 |
 | `aura/serve.aura` | 只听本机的预览服务 |
-| `web/index.html` | 果果点的那一页 |
-| `docs/` | 以后每一课的讲稿 |
+| `courses/catalog.json` | 课程名册。加一课先改这里 |
+| `web/index.html` | 开关课 |
+| `web/courses.html` | 全部课程 |
+| `docs/` | 每一课的讲稿 |
 | `runtime/live.aura` | 最近一次成功 mutation 之后的工作区原文，运行时才有，不进 git |
 
-以后的编程课也放在这个仓库：新的一课加一份讲稿，需要互动时再加一页。
+## 加一课
+
+名册里加一项。`id`、`title`、`summary`、`href`、`doc`、`status` 都要有。`status` 用 `open` 或 `soon`。讲稿放在 `docs/`，`doc` 指向它。
+
+`open` 的课要有自己的页面。`href` 写 `/` 或 `/名字.html`，页面对应 `web/index.html` 或 `web/名字.html`。页面里放上下面这块，`data-course` 用名册里的 `id`：
+
+```html
+<nav id="course-bar" data-course="这门课的 id" aria-label="课程"></nav>
+<script src="/course-bar.js"></script>
+```
+
+服务只发出 `web/` 里一层的 `.html` 和 `.js`，以及 `/catalog.json`。课上如果只是改已有字面量，沿用开关课的 `replace-value`。节点个数会变的课，单独做页面和工作区。`make catalog` 会核对名册、页面和讲稿是否对得上。
 
 ## 预览协议
 

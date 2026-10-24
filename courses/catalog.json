@@ -1,0 +1,12 @@
+{
+  "courses": [
+    {
+      "id": "switches",
+      "title": "开关课",
+      "summary": "计算机为什么只用开和关。数字、字母、颜色和像素怎么变成位。",
+      "href": "/",
+      "doc": "docs/lesson-1.md",
+      "status": "open"
+    }
+  ]
+}

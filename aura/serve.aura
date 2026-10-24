@@ -1,7 +1,8 @@
 ; 回环上的开关课。真值是工作区里的七个字面量，浏览器只预览。
 ; 启动时 set-code 装上 aura/board-seed.aura。之后每次改动是一次
 ; mutate:replace-value，不把孩子贴来的正文再 set-code 进去。
-; GET / 页面，GET /api/state，POST /api 一行命令或一段 (define ...)。
+; GET / 开关课，GET /catalog.json 课程名册，GET /web 里的单层 .html 和 .js。
+; GET /api/state，POST /api 一行命令或一段 (define ...)。
 ; string-length 按码点计，HTTP 的 Content-Length 按字节计。
 
 (require "std/socket" all:)
@@ -11,6 +12,7 @@
 (define *note* "")
 (define *mut* "")
 (define *page* "")
+(define *catalog* "")
 (define *live* "runtime/live.aura")
 (define *port-file* "runtime/port")
 
@@ -137,6 +139,46 @@
               (set! ok #f))))))
     ok))
 
+(define (serve:ends-with? s suf)
+  (let ((n (string-length s)) (m (string-length suf)))
+    (if (or (< m 1) (< n m)) #f
+      (string=? (substring s (- n m) n) suf))))
+
+(define (serve:web-char c)
+  (or (and (>= c 48) (<= c 57))
+      (and (>= c 65) (<= c 90))
+      (and (>= c 97) (<= c 122))
+      (= c 45) (= c 46) (= c 95)))
+
+(define (serve:web-rel path)
+  (if (or (< (string-length path) 2) (not (= (string-ref path 0) 47)))
+    #f
+    (let ((rel (substring path 1 (string-length path)))
+          (n 0) (i 0) (ok #t))
+      (set! n (string-length rel))
+      (if (or (< n 1) (> n 64) (>= (string-index rel ".." 0) 0))
+        #f
+        (begin
+          (while (lambda () (and ok (< i n)))
+            (lambda ()
+              (if (serve:web-char (string-ref rel i))
+                (set! i (+ i 1))
+                (set! ok #f))))
+          (if ok rel #f))))))
+
+(define (serve:static path)
+  (let ((rel (serve:web-rel path)))
+    (if (not (string? rel))
+      #f
+      (let ((type (cond
+                    ((serve:ends-with? rel ".html") "text/html; charset=utf-8")
+                    ((serve:ends-with? rel ".js") "text/javascript; charset=utf-8")
+                    (#t #f))))
+        (if (not (string? type))
+          #f
+          (let ((body (read-file (string-append "web/" rel))))
+            (if (string? body) (list type body) #f)))))))
+
 (define (serve:respond sock status type body)
   (let ((head (serve:cat (list
                 "HTTP/1.1 " status "\r\n"
@@ -221,6 +263,14 @@
                                   (serve:view st #t ""))))))
             ((and (equal? method "POST") (equal? path "/api"))
              (serve:post sock req))
+            ((and (equal? method "GET") (equal? path "/catalog.json"))
+             (serve:respond sock "200 OK" "application/json; charset=utf-8" *catalog*))
+            ((equal? method "GET")
+             (let ((file (serve:static path)))
+               (if (pair? file)
+                 (serve:respond sock "200 OK" (car file) (car (cdr file)))
+                 (serve:respond sock "404 Not Found" "text/plain; charset=utf-8"
+                                "没有这一页\n"))))
             (#t
              (serve:respond sock "404 Not Found" "text/plain; charset=utf-8"
                "没有这一页\n"))))))))
@@ -255,9 +305,10 @@
 
 (define (serve:start)
   (set! *page* (read-file "web/index.html"))
-  (if (not (string? *page*))
+  (set! *catalog* (read-file "courses/catalog.json"))
+  (if (or (not (string? *page*)) (not (string? *catalog*)))
     (begin
-      (display "找不到 web/index.html，请在 guoguo 仓库根目录运行。\n")
+      (display "找不到 web/index.html 或 courses/catalog.json，请在 guoguo 仓库根目录运行。\n")
       (exit 1)))
   (let ((dir (serve:env "GUOGUO_RUNTIME" "runtime")))
     (set! *live* (string-append dir "/live.aura"))
@@ -278,7 +329,9 @@
                        (number->string port)
                        "\n第 2 课直接打开 http://127.0.0.1:"
                        (number->string port)
-                       "/?lesson=2\n按 Ctrl+C 结束\n"))
+                       "/?lesson=2\n全部课程 http://127.0.0.1:"
+                       (number->string port)
+                       "/courses.html\n按 Ctrl+C 结束\n"))
             (serve:loop listener)))))))
 
 (serve:start)

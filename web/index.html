@@ -43,6 +43,13 @@
   .eyebrow { margin: 0 0 8px; letter-spacing: 0.08em; color: var(--coral); font-size: 13px; }
   .lead { margin: 0 0 18px; max-width: 40em; font-size: 18px; }
   nav { display: flex; gap: 8px; flex-wrap: wrap; }
+  #course-bar { margin: 0 0 14px; }
+  #course-bar a, #course-bar span {
+    border: 1px solid var(--line); background: var(--card); border-radius: 999px;
+    padding: 6px 12px; text-decoration: none; color: inherit;
+  }
+  #course-bar a[aria-current="page"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  #course-bar .soon { color: #6d6256; }
   nav button, .pills button, .tools button, .presets button {
     border: 1px solid var(--line);
     background: var(--card);
@@ -228,6 +235,9 @@
 <body>
 <div class="wrap">
   <header>
+    <nav id="course-bar" data-course="switches" aria-label="课程">
+      <a href="/courses.html">全部课程</a>
+    </nav>
     <p class="eyebrow">果果编程课 · 第 1 课</p>
     <h1>开关课</h1>
     <p class="lead">计算机只懂开和关。这两节课，把开和关变成数字、字母、颜色和画。</p>
@@ -938,5 +948,6 @@ chain = fetch("/api/state")
   .then((data) => applyState(data))
   .catch(() => toast("还没连上 Aura。用 make run 打开开关课，再刷新这一页。"));
 </script>
+<script src="/course-bar.js"></script>
 </body>
 </html>

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>果果的课</title>
+<style>
+  :root { --paper: #f4efe4; --ink: #1f1a14; --card: #fffdf8; --line: #e4d8c4; --coral: #c4492c; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; color: var(--ink); background: var(--paper);
+    font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", sans-serif;
+    line-height: 1.5;
+  }
+  a { color: inherit; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 28px 20px 64px; }
+  h1 {
+    font-family: Palatino, "Songti SC", "Noto Serif SC", serif;
+    font-size: 48px; line-height: 1; margin: 0 0 8px; font-weight: 600;
+  }
+  .lead { margin: 0 0 18px; font-size: 18px; }
+  #course-bar { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 18px; }
+  #course-bar a, #course-bar span {
+    border: 1px solid var(--line); background: var(--card); border-radius: 999px;
+    padding: 6px 12px; text-decoration: none;
+  }
+  #course-bar a[aria-current="page"] { background: var(--ink); color: var(--paper); }
+  #course-bar .soon, .muted { color: #6d6256; }
+  #catalog { display: grid; gap: 12px; }
+  article {
+    background: var(--card); border: 1px solid var(--line); border-radius: 22px; padding: 18px 20px;
+  }
+  article h2 { margin: 0 0 6px; font-size: 22px; }
+  article p { margin: 0 0 10px; }
+  article a {
+    display: inline-block; background: var(--ink); color: var(--paper);
+    text-decoration: none; border-radius: 999px; padding: 8px 14px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav id="course-bar" data-course="" aria-label="课程">
+    <a href="/">开关课</a>
+  </nav>
+  <h1>果果的课</h1>
+  <p class="lead">一门课一张页面。新课写进课程名册，再做它自己的页面。</p>
+  <div id="catalog">名册在读。</div>
+</div>
+<script src="/course-bar.js"></script>
+<script src="/catalog.js"></script>
+</body>
+</html>

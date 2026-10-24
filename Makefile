@@ -7,11 +7,14 @@ export AURA_PIPELINE_STRICT ?= force-soa
 
 ROOT := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
-.PHONY: doctor test check http run
+.PHONY: doctor test check http run catalog
 
 doctor:
 	@test -x "$(AURA_BIN)" || { echo "找不到 Aura 二进制：$(AURA_BIN)"; exit 127; }
 	@echo "aura ok: $(AURA_BIN)"
+
+catalog:
+	python3 "$(ROOT)tests/catalog_check.py"
 
 check: doctor
 	cd "$(ROOT)" && "$(AURA_BIN)" tests/check.aura
@@ -20,7 +23,7 @@ check: doctor
 http: doctor
 	cd "$(ROOT)" && sh tests/http.sh
 
-test: check http
+test: catalog check http
 
 run: doctor
 	cd "$(ROOT)" && mkdir -p runtime && exec "$(AURA_BIN)" aura/serve.aura
