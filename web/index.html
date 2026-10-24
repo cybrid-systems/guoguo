@@ -31,7 +31,8 @@
   button, input, textarea { font: inherit; color: inherit; }
   button { cursor: pointer; }
   :focus-visible { outline: 3px solid var(--sea); outline-offset: 2px; }
-  .wrap { max-width: 1040px; margin: 0 auto; padding: 28px 20px 64px; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 28px 20px 64px; }
+  .stage { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; align-items: start; }
   header h1 {
     font-family: Palatino, "Iowan Old Style", "Songti SC", "Noto Serif SC", serif;
     font-size: 52px;
@@ -155,32 +156,69 @@
   #rowhexes { display: grid; grid-template-rows: repeat(8, 28px); gap: 4px; padding-top: 8px; }
   #rowhexes input { width: 58px; height: 28px; padding: 0; text-align: center; }
   .tools, .presets, .pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+  .aura {
+    position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow: auto;
+  }
   .aura textarea {
-    width: 100%; min-height: 240px; border-radius: 14px; border: 0; padding: 14px;
+    width: 100%; min-height: 168px; border-radius: 14px; border: 0; padding: 14px;
     background: #1f1a14; color: #f4efe4;
     font-family: ui-monospace, "Source Code Pro", monospace;
     font-size: 14px; line-height: 1.45;
   }
+  .aura .tools #apply { flex: 1 1 100%; background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  #sheet-toggle { display: none; }
   .sync { margin: 8px 0 0; }
-  .nodes { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+  .echo {
+    display: block; width: 100%; margin: 10px 0 0; padding: 8px 12px; text-align: left;
+    border: 1px solid var(--line); border-radius: 12px; background: #fff8ea;
+    font-family: ui-monospace, "Source Code Pro", monospace; font-size: 13.5px;
+  }
+  .echo.hot { border-color: var(--coral); background: #fff1ea; }
+  .nodes { display: flex; flex-direction: column; gap: 10px; margin: 10px 0; }
+  .node-group { display: flex; flex-direction: column; gap: 6px; }
+  .node-label { margin: 0; font-size: 12px; letter-spacing: 0.06em; color: #6d6256; }
+  .node-row { display: flex; flex-wrap: wrap; gap: 6px; }
   .node {
     display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
-    min-width: 108px; border: 1px solid var(--line); background: #fbf7f0;
+    flex: 1 1 120px; min-width: 0; border: 1px solid var(--line); background: #fbf7f0;
     border-radius: 14px; padding: 8px 10px; text-align: left;
   }
-  .node b { font-size: 13px; }
+  .node-kicker { font-size: 12px; color: #6d6256; }
+  .node b { font-size: 14px; }
   .node .nid { color: #6d6256; font-size: 12px; font-variant-numeric: tabular-nums; }
   .node code { font-family: ui-monospace, "Source Code Pro", monospace; font-size: 13px; }
   .node.changed { border-color: var(--coral); background: #fff1ea; }
+  .node.picked { border-color: var(--sea); box-shadow: 0 0 0 2px rgba(35, 64, 110, 0.35); }
+  .spot { outline: 3px solid var(--coral); outline-offset: 4px; border-radius: 18px; }
   .mut { margin: 0 0 8px; color: #8a3d12; font-weight: 700; }
+  .sheet-note { font-size: 13px; }
   #workspace {
     white-space: pre-wrap; word-break: break-all; background: #f4efe4;
     border-radius: 12px; padding: 12px; font-size: 13px;
   }
   footer { margin-top: 18px; color: #6d6256; }
-  @media (max-width: 800px) {
+  @media (max-width: 980px) {
     .split, .people, .path, .contexts, .reads { grid-template-columns: 1fr; }
     header h1 { font-size: 40px; }
+  }
+  @media (max-width: 900px) {
+    .stage { grid-template-columns: 1fr; }
+    body { padding-bottom: 92px; }
+    .block, #lamp, #cards, #mini, #grid, #swatch { scroll-margin-bottom: 120px; }
+    .aura {
+      position: fixed; left: 10px; right: 10px; bottom: 10px; top: auto;
+      margin: 0; z-index: 20; max-height: min(78vh, 640px);
+    }
+    .aura:not(.open) .sheet-body { display: none; }
+    #sheet-toggle {
+      display: flex; width: 100%; align-items: center; justify-content: space-between;
+      gap: 8px; border: 0; background: transparent; padding: 0 0 2px; text-align: left;
+    }
+    .sheet-title { font-weight: 700; }
+    .sheet-now {
+      color: #6d6256; font-family: ui-monospace, "Source Code Pro", monospace;
+      font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
   }
   @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; }
@@ -199,12 +237,14 @@
     </nav>
     <details>
       <summary>给一起上课的人</summary>
-      <p>三句话就够：计算机用可靠的电开关工作；硬件是身体，软件是指令；所有信息最终都是位，加上怎么解释它。翻上面的卡片，下面的 Aura 程序会变。改程序再按「用这段程序更新画面」，卡片会跟着翻。完整的两节课在 <span class="mono">docs/lesson-1.md</span>。</p>
+      <p>三句话就够：计算机用可靠的电开关工作；硬件是身体，软件是指令；所有信息最终都是位，加上怎么解释它。翻灯和卡片，旁边的程序会变。改程序再按「用这段程序更新画面」，画面会跟着变。点程序卡片，会跳到它管的那一块。完整的两节课在 <span class="mono">docs/lesson-1.md</span>。</p>
     </details>
   </header>
   <p id="note" hidden></p>
   <p id="toast" role="status" hidden></p>
 
+  <div class="stage">
+  <div class="lesson-col">
   <div id="lesson1">
     <section class="block">
       <h2>计算机是怎么变小的</h2>
@@ -230,6 +270,7 @@
             <div class="bulb"></div>
             <div id="volt">约 5V · 开 · 1</div>
           </button>
+          <button type="button" class="echo" id="echo-lamp" data-echo="*lamp*">(define *lamp* "1")</button>
         </div>
       </div>
       <p>晶体管就是这种极快、极可靠的开关。芯片是成千上万个开关印在一小片硅上。</p>
@@ -257,6 +298,7 @@
       <p>举起来是 1，放下是 0。点一张卡片试试。下一课我们用它们记年龄、字母和颜色。</p>
       <div class="cards" id="mini"></div>
       <p>现在这几位是 <strong id="mini-dec">11</strong>。</p>
+      <button type="button" class="echo" id="echo-mini" data-echo="*bits*">(define *bits* "01011")</button>
       <button type="button" id="to-lesson-2">去第 2 课，把数字存进去</button>
     </section>
   </div>
@@ -272,11 +314,12 @@
       </div>
       <div class="cards" id="cards"></div>
       <p class="muted" id="width-hint">五张卡片能记 0 到 31。生日是几号，通常放得下。</p>
+      <button type="button" class="echo" id="echo-bits" data-echo="*bits*">(define *width* "5")   (define *bits* "01011")</button>
     </section>
 
     <section class="block">
       <h2>四种读法</h2>
-      <p>改任意一格，卡片都会跟着翻。计算机用二进制。八进制、十六进制是给人看的缩写。</p>
+      <p>改任意一格，按回车，卡片都会跟着翻。计算机用二进制。八进制、十六进制是给人看的缩写。</p>
       <div class="reads">
         <label class="field">十进制<input id="dec" inputmode="numeric" autocomplete="off" aria-label="十进制"></label>
         <label class="field">二进制<input id="bin" class="mono" autocomplete="off" spellcheck="false" aria-label="二进制"></label>
@@ -320,6 +363,7 @@
       <div class="chan"><span>红</span><div id="redBits" class="bits"></div><input id="redHex" class="mono" maxlength="4" autocomplete="off" spellcheck="false" aria-label="红色"></div>
       <div class="chan"><span>绿</span><div id="greenBits" class="bits"></div><input id="greenHex" class="mono" maxlength="4" autocomplete="off" spellcheck="false" aria-label="绿色"></div>
       <div class="chan"><span>蓝</span><div id="blueBits" class="bits"></div><input id="blueHex" class="mono" maxlength="4" autocomplete="off" spellcheck="false" aria-label="蓝色"></div>
+      <button type="button" class="echo" id="echo-color" data-echo="*red*">(define *red* "11111111")  (define *green* "00000000")  (define *blue* "00000000")</button>
     </section>
 
     <section class="block">
@@ -329,6 +373,7 @@
         <div id="grid"></div>
         <div id="rowhexes"></div>
       </div>
+      <button type="button" class="echo" id="echo-pixels" data-echo="*pixels*">(define *pixels* 第一行 "00111100")</button>
       <div class="tools">
         <button type="button" data-stamp="smile">笑脸</button>
         <button type="button" data-stamp="heart">心</button>
@@ -340,25 +385,34 @@
       <p class="muted">小作业：把家里某个人的年龄写成二进制，或者找一个网页颜色代码，填进上面的格子。</p>
     </section>
   </div>
+  </div>
 
-  <section class="aura" id="aura">
-    <h2>双向预览</h2>
-    <p>上面的灯、卡片、颜色和像素，读的是正在跑的 Aura 工作区。翻一张卡片，Aura 用 replace-value 改掉对应的字面量，增量编译只重做这一小段。下面是工作区印出来的程序。</p>
-    <p class="muted">每一格是工作区里的一个字符串节点。翻卡片、改颜色，Aura 用 replace-value 改这一格里的字，定义和字面量的编号都不变。引号里的 <span class="mono">\n</span> 是一行像素的换行。点一格，会在下面选中对应的那一行。</p>
-    <div id="nodes" class="nodes" aria-label="工作区里的字面量节点"></div>
-    <p id="mut" class="mut" hidden></p>
-    <textarea id="source" spellcheck="false" aria-label="Aura 程序"></textarea>
-    <details>
-      <summary>工作区原文</summary>
-      <pre id="workspace" class="mono"></pre>
-    </details>
-    <div class="tools">
-      <button type="button" id="apply">用这段程序更新画面</button>
-      <button type="button" id="revert">放弃修改</button>
-      <button type="button" id="reload">从文件读回来</button>
+  <aside class="aura" id="aura" aria-label="双向预览">
+    <button type="button" id="sheet-toggle" aria-expanded="false" aria-controls="sheet-body">
+      <span class="sheet-title">双向预览</span>
+      <span id="sheet-now" class="sheet-now"></span>
+    </button>
+    <div class="sheet-body" id="sheet-body">
+      <h2>双向预览</h2>
+      <p>翻灯、卡片或颜色，这里的字马上变。改下面的程序，再按「用这段程序更新画面」，画面跟着变。点一格，会跳到它管的那一块。</p>
+      <div id="nodes" class="nodes" aria-label="工作区里的字面量节点"></div>
+      <p id="mut" class="mut" hidden></p>
+      <p class="node-label">整段程序</p>
+      <textarea id="source" spellcheck="false" aria-label="Aura 程序"></textarea>
+      <details>
+        <summary>工作区原文</summary>
+        <pre id="workspace" class="mono"></pre>
+      </details>
+      <div class="tools">
+        <button type="button" id="apply">用这段程序更新画面</button>
+        <button type="button" id="revert">放弃修改</button>
+        <button type="button" id="reload">从文件读回来</button>
+      </div>
+      <p class="sync" id="sync">画面和程序一致</p>
+      <p class="muted sheet-note">Aura 用 replace-value 改格子里的字，定义和字面量的编号不变。引号里的 \n 是一行像素的换行。</p>
     </div>
-    <p class="sync" id="sync">画面和程序一致</p>
-  </section>
+  </aside>
+  </div>
   <footer>果果编程课 · 二进制是计算机的母语，八进制和十六进制是缩写，信息是位加上怎么解释它。</footer>
 </div>
 <script>
@@ -439,41 +493,138 @@ function applyState(data) {
   }
 }
 
+const nodeMeta = {
+  "*lamp*": "灯",
+  "*width*": "几张卡片",
+  "*bits*": "这串开关",
+  "*red*": "红",
+  "*green*": "绿",
+  "*blue*": "蓝",
+  "*pixels*": "小画"
+};
+const nodeGroups = [
+  ["跟着灯", ["*lamp*"]],
+  ["跟着卡片", ["*width*", "*bits*"]],
+  ["跟着颜色", ["*red*", "*green*", "*blue*"]],
+  ["跟着小画", ["*pixels*"]]
+];
+
 function shortText(text) {
   const line = String(text || "").split("\n")[0];
-  return line.length > 16 ? line.slice(0, 16) + "…" : line;
+  return line.length > 18 ? line.slice(0, 18) + "…" : line;
 }
 
-function selectDefine(name) {
+function wideScreen() {
+  return window.matchMedia("(min-width: 901px)").matches;
+}
+
+function setSheet(open) {
+  const aura = document.getElementById("aura");
+  aura.classList.toggle("open", open);
+  document.getElementById("sheet-toggle").setAttribute("aria-expanded", open ? "true" : "false");
+}
+
+function markLine(name, focus) {
   const src = document.getElementById("source");
-  const needle = "(define " + name;
-  const at = src.value.indexOf(needle);
+  const at = src.value.indexOf("(define " + name);
   if (at < 0) return;
   const lineEnd = src.value.indexOf("\n", at);
-  src.focus();
+  if (focus) src.focus();
   src.setSelectionRange(at, lineEnd < 0 ? src.value.length : lineEnd);
-  sync(draft ? "程序改了，还没应用到画面。" : "选中的是 " + name + "。编号不变，变的是引号里的字。");
+  const line = src.value.slice(0, at).split("\n").length - 1;
+  src.scrollTop = Math.max(0, line * 20 - 12);
+}
+
+function pictureOf(name) {
+  if (name === "*lamp*") return { lesson: 1, id: "lamp" };
+  if (name === "*width*" || name === "*bits*") {
+    const on1 = !document.getElementById("lesson1").hidden;
+    return { lesson: on1 ? 1 : 2, id: on1 ? "mini" : "cards" };
+  }
+  if (name === "*pixels*") return { lesson: 2, id: "grid" };
+  if (name === "*red*" || name === "*green*" || name === "*blue*") {
+    return { lesson: 2, id: name.slice(1, -1) + "Bits" };
+  }
+  return null;
+}
+
+function selectDefine(name, go) {
+  document.querySelectorAll(".node").forEach((el) => {
+    el.classList.toggle("picked", el.dataset.name === name);
+  });
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (go === "program") {
+    if (!wideScreen()) setSheet(true);
+    markLine(name, true);
+    const btn = document.querySelector('.node[data-name="' + name + '"]');
+    if (btn) btn.scrollIntoView({ block: "nearest" });
+  } else {
+    markLine(name, wideScreen());
+    const spot = pictureOf(name);
+    if (spot) {
+      showLesson(spot.lesson);
+      const el = document.getElementById(spot.id);
+      if (el) {
+        if (!wideScreen()) setSheet(false);
+        el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+        el.classList.add("spot");
+        setTimeout(() => el.classList.remove("spot"), 1400);
+      }
+    }
+  }
+  const label = nodeMeta[name] || name;
+  sync(draft ? "程序改了，还没应用到画面。" : "点中的是" + label + "。编号不变，变的是引号里的字。");
+}
+
+function nodeButton(n) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "node" + (n.changed ? " changed" : "");
+  b.dataset.name = n.name;
+  const kicker = document.createElement("span");
+  kicker.className = "node-kicker";
+  kicker.textContent = nodeMeta[n.name] || "程序";
+  const title = document.createElement("b");
+  title.textContent = n.name;
+  const id = document.createElement("span");
+  id.className = "nid";
+  id.textContent = "定义 " + n.define + " → 字 " + n.literal;
+  const text = document.createElement("code");
+  text.textContent = n.name === "*pixels*"
+    ? '"' + shortText(n.text) + '" · 8 行'
+    : '"' + n.text + '"';
+  b.setAttribute("aria-label", (nodeMeta[n.name] || n.name) + "，" + n.name + "，定义 " + n.define + "，字面量 " + n.literal);
+  b.append(kicker, title, id, text);
+  b.addEventListener("click", () => selectDefine(n.name, "picture"));
+  return b;
 }
 
 function renderNodes(nodes) {
   const host = document.getElementById("nodes");
   host.replaceChildren();
-  (nodes || []).forEach((n) => {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.className = "node" + (n.changed ? " changed" : "");
-    const title = document.createElement("b");
-    title.textContent = n.name;
-    const id = document.createElement("span");
-    id.className = "nid";
-    id.textContent = "定义 " + n.define + " → 字 " + n.literal;
-    const text = document.createElement("code");
-    text.textContent = shortText(n.text);
-    b.setAttribute("aria-label", n.name + "，定义 " + n.define + "，字面量 " + n.literal);
-    b.append(title, id, text);
-    b.addEventListener("click", () => selectDefine(n.name));
-    host.append(b);
+  const byName = new Map((nodes || []).map((n) => [n.name, n]));
+  nodeGroups.forEach(([label, names]) => {
+    const group = document.createElement("div");
+    group.className = "node-group";
+    const cap = document.createElement("p");
+    cap.className = "node-label";
+    cap.textContent = label;
+    const row = document.createElement("div");
+    row.className = "node-row";
+    names.forEach((name) => {
+      const n = byName.get(name);
+      if (n) row.append(nodeButton(n));
+    });
+    group.append(cap, row);
+    host.append(group);
   });
+  (nodes || []).forEach((n) => {
+    if (!nodeMeta[n.name]) host.append(nodeButton(n));
+  });
+  const changed = (nodes || []).filter((n) => n.changed);
+  const focus = changed[0] || byName.get("*bits*");
+  const now = document.getElementById("sheet-now");
+  now.textContent = focus ? (nodeMeta[focus.name] || focus.name) + " " + shortText(focus.text) : "";
 }
 
 function toast(msg) {
@@ -484,6 +635,13 @@ function toast(msg) {
 
 function sync(msg) {
   document.getElementById("sync").textContent = msg;
+}
+
+function echo(id, text, hot) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text;
+  el.classList.toggle("hot", !!hot);
 }
 
 function setField(id, value) {
@@ -658,6 +816,13 @@ function render() {
   });
   state.rowHex.forEach((hex, r) => setField("rowhex" + r, hex));
   document.getElementById("byte-to-row").hidden = state.width !== 8;
+  const hot = new Set((state.nodes || []).filter((n) => n.changed).map((n) => n.name));
+  echo("echo-lamp", '(define *lamp* "' + (on ? "1" : "0") + '")', hot.has("*lamp*"));
+  echo("echo-mini", '(define *bits* "' + state.bits + '")', hot.has("*bits*") || hot.has("*width*"));
+  echo("echo-bits", '(define *width* "' + state.width + '")   (define *bits* "' + state.bits + '")', hot.has("*bits*") || hot.has("*width*"));
+  echo("echo-color", '(define *red* "' + state.redBits + '")  (define *green* "' + state.greenBits + '")  (define *blue* "' + state.blueBits + '")', hot.has("*red*") || hot.has("*green*") || hot.has("*blue*"));
+  const row0 = state.rows && state.rows[0] ? state.rows[0] : "";
+  echo("echo-pixels", '(define *pixels* 第一行 "' + row0 + '")', hot.has("*pixels*"));
 }
 
 function bindField(id, build) {
@@ -749,6 +914,13 @@ document.getElementById("revert").addEventListener("click", () => {
 document.getElementById("reload").addEventListener("click", () => {
   draft = false;
   post("reload");
+});
+document.getElementById("sheet-toggle").addEventListener("click", () => {
+  const open = !document.getElementById("aura").classList.contains("open");
+  setSheet(open);
+});
+document.querySelectorAll("[data-echo]").forEach((el) => {
+  el.addEventListener("click", () => selectDefine(el.dataset.echo, "program"));
 });
 
 setInterval(() => {
