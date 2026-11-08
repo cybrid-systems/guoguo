@@ -410,7 +410,7 @@
     (string-append out "]")))
 
 (define (fr:json-view state ok? err note source workspace mut nodes)
-  (let ((sum (fr:sum state)) (diff (fr:diff state)))
+  (let ((sum (fr:sum state)) (diff (fr:diff state)) (scaled (fr:common state)))
     (bits:cat (list
       "{"
       (bits:cat (list
@@ -423,6 +423,10 @@
         ",\"num2\":" (number->string (fr:num2 state))
         ",\"den2\":" (number->string (fr:den2 state))
         ",\"quot\":" (number->string (/ (fr:num state) (fr:den state)))
+        ",\"sameOk\":" (fr:json-bool (pair? scaled))
+        ",\"sameNum\":" (number->string (if (pair? scaled) (fr:num scaled) 0))
+        ",\"sameDen\":" (number->string (if (pair? scaled) (fr:den scaled) 0))
+        ",\"sameNum2\":" (number->string (if (pair? scaled) (fr:num2 scaled) 0))
         ",\"sumOk\":" (fr:json-bool (pair? sum))
         ",\"sumNum\":" (number->string (if (pair? sum) (car sum) 0))
         ",\"sumDen\":" (number->string (if (pair? sum) (bits:nth sum 1) 0))

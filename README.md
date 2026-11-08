@@ -71,4 +71,4 @@ make test
 
 常用命令：`flip 0`、`set dec 65`、`set bin 01000001`、`set oct 101`、`set hex 41`、`set letter A`、`width 8`、`lamp 0`、`color ff0000`、`chan red hex 80`、`pix 0 2`、`stamp smile`、`reload`。
 
-分数课用 `GET /api/fractions/state` 和 `POST /api/fractions`。命令有 `cut 4`、`take 1`、`finer`、`coarser`、`reduce`、`cut2 3`、`take2 1`、`same`、`add`、`sub`。`add` 和 `sub` 不改四个数。加出来的是 `sumNum` / `sumDen`，减出来的是 `diffNum` / `diffDen`。第二条比第一条大时 `sub` 失败，这课不画负数。`quot` 是整数除法 `(/ num den)`，所以 1/2 的 `quot` 是 0。
+分数课用 `GET /api/fractions/state` 和 `POST /api/fractions`。命令有 `cut 4`、`take 1`、`finer`、`coarser`、`reduce`、`cut2 3`、`take2 1`、`same`、`add`、`sub`。`add` 和 `sub` 不改四个数。切成一样的格子是 `sameOk`、`sameNum`、`sameDen`、`sameNum2`。加出来的是 `sumNum` / `sumDen`，减出来的是 `diffNum` / `diffDen`。第二条比第一条大时 `sub` 失败，这课不画负数。`quot` 是整数除法 `(/ num den)`，所以 1/2 的 `quot` 是 0。

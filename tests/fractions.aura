@@ -43,6 +43,10 @@
 (expect "diff num" (has view "\"diffNum\":1") #t)
 (expect "diff den" (has view "\"diffDen\":6") #t)
 (expect "diff ok" (has view "\"diffOk\":true") #t)
+(expect "same num" (has view "\"sameNum\":3") #t)
+(expect "same den" (has view "\"sameDen\":6") #t)
+(expect "same num2" (has view "\"sameNum2\":2") #t)
+(expect "same ok" (has view "\"sameOk\":true") #t)
 
 (define samed (fr:command fresh "same"))
 (expect "same ok" (bits:ok? samed) #t)
@@ -61,6 +65,12 @@
 (expect "sub too big" (bits:ok? cannot) #f)
 (expect "sub too big kept" (quad (bits:result cannot)) (list 1 2 2 3))
 (expect "sub too big msg" (bits:error cannot) "减掉的比第一条多。这课先不画负的")
+(define big-view (fr:json-view (bits:result cannot) #f "" "" "" "" "" (list)))
+(expect "big same num" (has big-view "\"sameNum\":3") #t)
+(expect "big same den" (has big-view "\"sameDen\":6") #t)
+(expect "big same num2" (has big-view "\"sameNum2\":4") #t)
+(expect "big same ok" (has big-view "\"sameOk\":true") #t)
+(expect "big diff ok" (has big-view "\"diffOk\":false") #t)
 
 (define cut (fr:command fresh "cut 4"))
 (expect "cut" (quad (bits:result cut)) (list 1 4 1 3))

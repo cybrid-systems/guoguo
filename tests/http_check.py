@@ -163,6 +163,8 @@ need('id="course-bar"' in frac_page, "fraction course bar")
 need("/course-bar.js" in frac_page, "fraction course bar script")
 need('id="source"' in frac_page, "fraction page missing source box")
 need("双向预览" in frac_page, "fraction page missing preview")
+need('id="work-block"' in frac_page, "fraction process")
+need("先切成一样" in frac_page, "fraction process step")
 need(any(
     c.get("id") == "fractions" and c.get("status") == "open" and c.get("href") == "/fractions.html"
     for c in listed
@@ -181,6 +183,9 @@ need(frac["sumOk"] is True, frac.get("sumOk"))
 need(frac["sumNum"] == 5 and frac["sumDen"] == 6, (frac.get("sumNum"), frac.get("sumDen")))
 need(frac["diffOk"] is True, frac.get("diffOk"))
 need(frac["diffNum"] == 1 and frac["diffDen"] == 6, (frac.get("diffNum"), frac.get("diffDen")))
+need(frac["sameOk"] is True, frac.get("sameOk"))
+need(frac["sameNum"] == 3 and frac["sameDen"] == 6 and frac["sameNum2"] == 2,
+     (frac.get("sameNum"), frac.get("sameDen"), frac.get("sameNum2")))
 need(len(frac["nodes"]) == 4, frac.get("nodes"))
 frac_num = next(n for n in frac["nodes"] if n["name"] == "*num*")
 need(frac_num["text"] == "1", frac_num)
@@ -198,6 +203,8 @@ cannot = post_to("/api/fractions", "sub")
 need(cannot["ok"] is False, "sub of a larger second bar should fail")
 need(cannot["num"] == 1 and cannot["den"] == 2 and cannot["num2"] == 2 and cannot["den2"] == 3, cannot)
 need(cannot.get("mut", "") == "", cannot.get("mut"))
+need(cannot["sameOk"] is True and cannot["sameNum"] == 3 and cannot["sameNum2"] == 4, cannot)
+need(cannot["diffOk"] is False, cannot.get("diffOk"))
 restored = post_to("/api/fractions", "take2 1")
 need(restored["ok"] is True and restored["num2"] == 1, restored)
 
