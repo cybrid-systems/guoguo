@@ -619,11 +619,6 @@ function paintWork() {
     lead.textContent = "格子数还没从 Aura 来。停掉终端里的课，拉下新的程序，再 make run。";
     return;
   }
-  if (!adding && !state.sameOk) {
-    steps.hidden = true;
-    lead.textContent = "减的时候要先切成一样，那样会超过 24 格。这课先不画。";
-    return;
-  }
   if (adding && typeof state.sumWhole !== "number") {
     steps.hidden = true;
     lead.textContent = "格子数还没从 Aura 来。停掉终端里的课，拉下新的程序，再 make run。";
@@ -632,7 +627,9 @@ function paintWork() {
   steps.hidden = false;
   const drawCells = state.sameOk;
   const knife = "分母是刀切出来的份数，两把刀不加在一起。";
-  if (!adding) {
+  if (!adding && !drawCells) {
+    lead.textContent = "份数比 24 还多，每一格太小，不画出来。剩下的份数写在这里。";
+  } else if (!adding) {
     lead.textContent = "先把两条切成一样大的格子，再从第一条里拿掉第二条那么多格。";
   } else if (!drawCells) {
     lead.textContent = "份数比 24 还多，每一格太小，不画出来。整块和剩下的数写在这里。";
@@ -725,10 +722,18 @@ function paintWork() {
   document.getElementById("step2-label").textContent = "剩下";
   if (state.diffOk) {
     const left = state.diffNum;
-    step2.textContent = "第一条有 " + sn + " 格，拿掉 " + sn2 + " 格，剩下 " + left + " 格，仍是 " + sd
-      + " 份，所以是 " + left + "/" + sd + "。分母还是原来切的份数，不把两把刀相减。";
+    const blade = "分母还是原来切的份数，不把两把刀相减。";
     whole.hidden = false;
     paintFrac("frac-result", left, sd);
+    if (!drawCells) {
+      step2.textContent = "第一条有 " + sn + " 格，拿掉 " + sn2 + " 格，剩下 " + left
+        + " 格，仍是 " + sd + " 份，所以是 " + left + "/" + sd + "。格子太小，不把每一格画出来。" + blade;
+      result.hidden = true;
+      result.replaceChildren();
+      return;
+    }
+    step2.textContent = "第一条有 " + sn + " 格，拿掉 " + sn2 + " 格，剩下 " + left + " 格，仍是 " + sd
+      + " 份，所以是 " + left + "/" + sd + "。" + blade;
     result.hidden = false;
     fillRow(result, sd, (i) => {
       if (i < left) return "kept on";
@@ -745,10 +750,12 @@ function paintWork() {
     whole.hidden = true;
     result.hidden = true;
     result.replaceChildren();
-    legend.append(
-      legendItem("from1 on", "第一条的格子"),
-      legendItem("from2 on", "第二条的格子")
-    );
+    if (drawCells) {
+      legend.append(
+        legendItem("from1 on", "第一条的格子"),
+        legendItem("from2 on", "第二条的格子")
+      );
+    }
   }
 }
 

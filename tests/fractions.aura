@@ -100,7 +100,8 @@
 (expect "wide same" (bits:ok? (fr:command wide "same")) #f)
 (expect "wide add" (bits:ok? (fr:command wide "add")) #t)
 (expect "wide kept" (quad (bits:result (fr:command wide "add"))) (list 1 13 1 17))
-(expect "wide sub" (bits:ok? (fr:command wide "sub")) #f)
+(expect "wide sub" (bits:ok? (fr:command wide "sub")) #t)
+(expect "wide sub kept" (quad (bits:result (fr:command wide "sub"))) (list 1 13 1 17))
 (define wide-view (fr:json-view wide #t "" "" "" "" "" (list)))
 (expect "wide ok" (has wide-view "\"sameOk\":false") #t)
 (expect "wide den" (has wide-view "\"sameDen\":221") #t)
@@ -110,6 +111,23 @@
 (expect "wide sum den" (has wide-view "\"sumDen\":221") #t)
 (expect "wide whole" (has wide-view "\"sumWhole\":0") #t)
 (expect "wide rest" (has wide-view "\"sumRest\":30") #t)
+(expect "wide diff" (has wide-view "\"diffNum\":4") #t)
+(expect "wide diff den" (has wide-view "\"diffDen\":221") #t)
+(expect "wide diff ok" (has wide-view "\"diffOk\":true") #t)
+
+(define wide-back
+  (bits:result (fr:command
+    (bits:result (fr:command fresh "cut 17"))
+    "cut2 13")))
+(expect "wide back" (quad wide-back) (list 1 17 1 13))
+(define wide-back-sub (fr:command wide-back "sub"))
+(expect "wide back sub" (bits:ok? wide-back-sub) #f)
+(expect "wide back kept" (quad (bits:result wide-back-sub)) (list 1 17 1 13))
+(expect "wide back msg" (bits:error wide-back-sub) "减掉的比第一条多。这课先不画负的")
+(define wide-back-view (fr:json-view wide-back #f "" "" "" "" "" (list)))
+(expect "wide back diff" (has wide-back-view "\"diffOk\":false") #t)
+(expect "wide back num" (has wide-back-view "\"sameNum\":13") #t)
+(expect "wide back num2" (has wide-back-view "\"sameNum2\":17") #t)
 
 (define both
   (bits:result (fr:command

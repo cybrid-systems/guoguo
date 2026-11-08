@@ -131,20 +131,15 @@
 (define (fr:add st) (fr:ok st))
 
 (define (fr:diff st)
-  (let ((scaled (fr:common st)))
-    (if (not (pair? scaled))
-      #f
-      (let ((n (- (fr:num scaled) (fr:num2 scaled))) (d (fr:den scaled)))
-        (if (< n 0) #f (list n d))))))
+  (let ((scaled (fr:scale st)))
+    (let ((n (- (fr:num scaled) (fr:num2 scaled))) (d (fr:den scaled)))
+      (if (< n 0) #f (list n d)))))
 
 (define (fr:sub st)
-  (let ((scaled (fr:common st)))
-    (cond
-      ((not (pair? scaled))
-        (fr:fail "减的时候要先切成一样，那样会超过 24 格" st))
-      ((< (- (fr:num scaled) (fr:num2 scaled)) 0)
-        (fr:fail "减掉的比第一条多。这课先不画负的" st))
-      (#t (fr:ok st)))))
+  (let ((scaled (fr:scale st)))
+    (if (< (- (fr:num scaled) (fr:num2 scaled)) 0)
+      (fr:fail "减掉的比第一条多。这课先不画负的" st)
+      (fr:ok st))))
 
 (define (fr:from-text st src)
   (let ((n (fr:nat (bits:field src "num")))
