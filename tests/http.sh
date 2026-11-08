@@ -2,8 +2,7 @@
 # Start the lesson on an ephemeral port and check the preview both ways.
 set -eu
 cd "$(dirname "$0")/.."
-AURA_BIN="${AURA_BIN:-/home/dev/code/grok-dev/aura-grok/build/aura}"
-export AURA_PATH="${AURA_PATH:-/home/dev/code/grok-dev/aura-grok/lib}"
+AURA_BIN="${AURA_BIN:-aura}"
 export AURA_SANDBOX=off
 export AURA_PIPELINE_STRICT="${AURA_PIPELINE_STRICT:-force-soa}"
 rt=$(mktemp -d)

@@ -6,18 +6,24 @@
 
 ## 打开
 
-需要本机的 Aura。默认用旁边仓库里的二进制。
+需要已经装好的 Aura。安装脚本默认是 nightly。要钉住 v0.1.0：
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/cybrid-systems/aura/main/install.sh | AURA_VERSION=v0.1.0 sh
+```
+
+`make run` 用 PATH 上的 `aura`，也就是安装器放进 `~/.local/bin` 的启动器。启动器自己带上安装目录里的标准库。不要把 `AURA_BIN` 指到源码树的 `build/aura`，也不要设置 `AURA_PATH`。果果自己的程序在本仓库的 `aura/`，服务从当前目录找到它们。`AURA_SANDBOX=off` 仍由 Makefile 带上，因为开课会 `set-code`。
 
 ```sh
 cd /home/dev/code/grok-dev/guoguo
 make run
 ```
 
-终端会打印地址，一般是 <http://127.0.0.1:8765>。第 2 课可以直接打开 <http://127.0.0.1:8765/?lesson=2>。Ctrl+C 结束。
+终端会打印地址，一般是 <http://127.0.0.1:8765>。开关课的第 2 课可以直接打开 <http://127.0.0.1:8765/?lesson=2>。Ctrl+C 结束。
 
 换端口：`GUOGUO_PORT=8770 make run`。
 
-两节课怎么讲，写在 [`docs/lesson-1.md`](docs/lesson-1.md)。
+开关课怎么讲，写在 [`docs/lesson-1.md`](docs/lesson-1.md)。分数课的讲稿在 [`docs/lesson-fractions.md`](docs/lesson-fractions.md)，页面还没做，名册里是还没开。做好之后用 `GUOGUO_LESSON=fractions make run`，一次进程只上一门课。
 
 ## 检查
 
@@ -38,7 +44,7 @@ make test
 | `courses/catalog.json` | 课程名册。加一课先改这里 |
 | `web/index.html` | 开关课 |
 | `web/courses.html` | 全部课程 |
-| `docs/` | 每一课的讲稿 |
+| `docs/` | 每一课的讲稿。分数课是 `docs/lesson-fractions.md` |
 | `runtime/live.aura` | 最近一次成功 mutation 之后的工作区原文，运行时才有，不进 git |
 
 ## 加一课

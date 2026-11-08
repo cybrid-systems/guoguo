@@ -7,6 +7,14 @@
       "href": "/",
       "doc": "docs/lesson-1.md",
       "status": "open"
+    },
+    {
+      "id": "fractions",
+      "title": "分数课",
+      "summary": "一块东西切成同样大的几份。分数是两个整数，加上怎么把它们画出来。",
+      "href": "/fractions.html",
+      "doc": "docs/lesson-fractions.md",
+      "status": "soon"
     }
   ]
 }
