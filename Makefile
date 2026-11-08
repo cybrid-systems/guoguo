@@ -24,6 +24,7 @@ catalog:
 check: doctor
 	cd "$(ROOT)" && "$(AURA_BIN)" tests/check.aura
 	cd "$(ROOT)" && "$(AURA_BIN)" tests/mutate.aura
+	cd "$(ROOT)" && "$(AURA_BIN)" tests/fractions.aura
 
 http: doctor
 	cd "$(ROOT)" && sh tests/http.sh

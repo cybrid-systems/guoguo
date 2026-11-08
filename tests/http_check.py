@@ -155,3 +155,46 @@ need(loaded["dec"] == 1, loaded["dec"])
 loaded_bits = next(n for n in loaded["nodes"] if n["name"] == "*bits*")
 need(loaded_bits["literal"] == lit, loaded_bits)
 need(loaded_bits["text"] == "00000001" and loaded_bits["changed"] is True, loaded_bits)
+
+frac_page = fetch("/fractions.html").decode("utf-8")
+need("果果的分数课" in frac_page, "fraction page title")
+need('data-course="fractions"' in frac_page, "fraction course id")
+need('id="course-bar"' in frac_page, "fraction course bar")
+need("/course-bar.js" in frac_page, "fraction course bar script")
+need('id="source"' in frac_page, "fraction page missing source box")
+need("双向预览" in frac_page, "fraction page missing preview")
+need(any(
+    c.get("id") == "fractions" and c.get("status") == "open" and c.get("href") == "/fractions.html"
+    for c in listed
+), catalog)
+
+def post_to(path, cmd):
+    return json.loads(fetch(path, cmd).decode("utf-8"))
+
+frac = json.loads(fetch("/api/fractions/state").decode("utf-8"))
+need(frac["ok"] is True, frac)
+need(frac.get("lesson") == "fractions", frac.get("lesson"))
+need(frac["num"] == 1 and frac["den"] == 2, frac)
+need(frac["num2"] == 1 and frac["den2"] == 3, frac)
+need(frac["quot"] == 0, frac.get("quot"))
+need(frac["sumOk"] is True, frac.get("sumOk"))
+need(frac["sumNum"] == 5 and frac["sumDen"] == 6, (frac.get("sumNum"), frac.get("sumDen")))
+need(len(frac["nodes"]) == 4, frac.get("nodes"))
+frac_num = next(n for n in frac["nodes"] if n["name"] == "*num*")
+need(frac_num["text"] == "1", frac_num)
+need(isinstance(frac_num["literal"], int) and frac_num["literal"] >= 0, frac_num)
+
+cut = post_to("/api/fractions", "cut 4")
+need(cut["ok"] is True, cut.get("error"))
+need(cut["num"] == 1 and cut["den"] == 4, cut)
+need(str(cut.get("mut", "")).startswith("replace-value #"), cut.get("mut"))
+need(next(n for n in cut["nodes"] if n["name"] == "*num*")["literal"] == frac_num["literal"], cut["nodes"])
+
+miss = post_to("/api/fractions", "take 9")
+need(miss["ok"] is False, "take 9 should fail")
+need(miss["num"] == 1 and miss["den"] == 4, miss)
+need(miss.get("mut", "") == "", miss.get("mut"))
+
+back = json.loads(fetch("/api/state").decode("utf-8"))
+need(back["bits"] == "00000001", back.get("bits"))
+need(back["dec"] == 1, back.get("dec"))

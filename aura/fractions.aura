@@ -1,0 +1,416 @@
+; 分数课的计算和工作区。四个字符串字面量是真值。
+; 服务启动或换课时 set-code 装上 aura/fraction-seed.aura，之后只 replace-value。
+; 同时改分子和分母时用一次 atomic-batch。
+
+(require "aura/bits" all:)
+
+(export fr:fresh fr:command fr:install! fr:state fr:commit! fr:pretty
+        fr:snapshot fr:forget-touch! fr:json-view)
+
+(define *ids* #f)
+(define *touched* (list))
+
+(define (fr:ok state) (list #t "" state))
+(define (fr:fail msg state) (list #f msg state))
+
+(define (fr:make a b c d) (list a b c d))
+(define (fr:num st) (car st))
+(define (fr:den st) (bits:nth st 1))
+(define (fr:num2 st) (bits:nth st 2))
+(define (fr:den2 st) (bits:nth st 3))
+
+(define (fr:fresh) (fr:make 1 2 1 3))
+
+(define (fr:gcd a b)
+  (if (= b 0)
+    a
+    (fr:gcd b (- a (* (/ a b) b)))))
+
+(define (fr:even? n) (= (* (/ n 2) 2) n))
+
+(define (fr:nat s)
+  (if (not (string? s))
+    #f
+    (let ((n (string->number s 10)))
+      (if (and (integer? n) (>= n 0)) n #f))))
+
+(define (fr:space? c)
+  (or (= c 32) (= c 9) (= c 10) (= c 13)))
+
+(define (fr:ch c) (list->string (list c)))
+
+(define (fr:words s)
+  (let ((n (string-length s)) (i 0) (out (list)) (cur ""))
+    (while (lambda () (< i n))
+      (lambda ()
+        (let ((c (string-ref s i)))
+          (if (fr:space? c)
+            (begin
+              (if (> (string-length cur) 0)
+                (begin (set! out (cons cur out)) (set! cur "")))
+              (set! i (+ i 1)))
+            (begin
+              (set! cur (string-append cur (fr:ch c)))
+              (set! i (+ i 1)))))))
+    (if (> (string-length cur) 0) (set! out (cons cur out)))
+    (bits:reverse out)))
+
+(define (fr:arg words)
+  (if (and (pair? words) (pair? (cdr words)) (not (pair? (cdr (cdr words)))))
+    (fr:nat (bits:nth words 1))
+    #f))
+
+(define (fr:fit? n d)
+  (and (integer? n) (integer? d) (>= d 1) (<= d 24) (>= n 0) (<= n d)))
+
+(define (fr:cut st n first?)
+  (if (not (integer? n))
+    (fr:fail "要一个 1 到 24 的整数" st)
+    (let ((num (if first? (fr:num st) (fr:num2 st))))
+      (cond
+        ((or (< n 1) (> n 24)) (fr:fail "分母要在 1 和 24 之间" st))
+        ((> num n) (fr:fail "拿走的份数比切开的还多" st))
+        (first? (fr:ok (fr:make num n (fr:num2 st) (fr:den2 st))))
+        (#t (fr:ok (fr:make (fr:num st) (fr:den st) num n)))))))
+
+(define (fr:take st n first?)
+  (if (not (integer? n))
+    (fr:fail "要一个整数" st)
+    (let ((den (if first? (fr:den st) (fr:den2 st))))
+      (if (or (< n 0) (> n den))
+        (fr:fail "拿走的份数要在 0 和分母之间" st)
+        (if first?
+          (fr:ok (fr:make n den (fr:num2 st) (fr:den2 st)))
+          (fr:ok (fr:make (fr:num st) (fr:den st) n den)))))))
+
+(define (fr:finer st)
+  (let ((n (fr:num st)) (d (fr:den st)))
+    (if (> (* d 2) 24)
+      (fr:fail "再切就超过 24 格了" st)
+      (fr:ok (fr:make (* n 2) (* d 2) (fr:num2 st) (fr:den2 st))))))
+
+(define (fr:coarser st)
+  (let ((n (fr:num st)) (d (fr:den st)))
+    (if (or (not (fr:even? n)) (not (fr:even? d)))
+      (fr:fail "分子和分母都是偶数才能切得更粗" st)
+      (fr:ok (fr:make (/ n 2) (/ d 2) (fr:num2 st) (fr:den2 st))))))
+
+(define (fr:reduce-pair n d)
+  (let ((g (fr:gcd n d)))
+    (list (/ n g) (/ d g))))
+
+(define (fr:reduce st)
+  (let ((a (fr:reduce-pair (fr:num st) (fr:den st)))
+        (b (fr:reduce-pair (fr:num2 st) (fr:den2 st))))
+    (fr:ok (fr:make (car a) (bits:nth a 1) (car b) (bits:nth b 1)))))
+
+(define (fr:common st)
+  (let ((d1 (fr:den st)) (d2 (fr:den2 st)))
+    (let ((m (/ (* d1 d2) (fr:gcd d1 d2))))
+      (if (> m 24)
+        #f
+        (fr:make (* (fr:num st) (/ m d1)) m
+                 (* (fr:num2 st) (/ m d2)) m)))))
+
+(define (fr:same st)
+  (let ((next (fr:common st)))
+    (if (not (pair? next))
+      (fr:fail "切成一样会超过 24 格" st)
+      (fr:ok next))))
+
+(define (fr:sum st)
+  (let ((scaled (fr:common st)))
+    (if (not (pair? scaled))
+      #f
+      (let ((n (+ (fr:num scaled) (fr:num2 scaled))) (d (fr:den scaled)))
+        (if (> n d) #f (list n d))))))
+
+(define (fr:add st)
+  (if (pair? (fr:sum st))
+    (fr:ok st)
+    (fr:fail "加起来超过一整块，或者要切成比 24 还多的份。这课先不画" st)))
+
+(define (fr:from-text st src)
+  (let ((n (fr:nat (bits:field src "num")))
+        (d (fr:nat (bits:field src "den")))
+        (n2 (fr:nat (bits:field src "num2")))
+        (d2 (fr:nat (bits:field src "den2"))))
+    (cond
+      ((not (integer? n)) (fr:fail "程序里少了 *num*" st))
+      ((not (integer? d)) (fr:fail "程序里少了 *den*" st))
+      ((not (integer? n2)) (fr:fail "程序里少了 *num2*" st))
+      ((not (integer? d2)) (fr:fail "程序里少了 *den2*" st))
+      ((not (fr:fit? n d)) (fr:fail "第一条分数不对：分母要在 1 和 24 之间，分子不能更大" st))
+      ((not (fr:fit? n2 d2)) (fr:fail "第二条分数不对：分母要在 1 和 24 之间，分子不能更大" st))
+      (#t (fr:ok (fr:make n d n2 d2))))))
+
+(define (fr:line st raw)
+  (let ((words (fr:words raw)))
+    (let ((op (if (pair? words) (car words) "")))
+      (cond
+        ((equal? op "cut") (fr:cut st (fr:arg words) #t))
+        ((equal? op "take") (fr:take st (fr:arg words) #t))
+        ((equal? op "cut2") (fr:cut st (fr:arg words) #f))
+        ((equal? op "take2") (fr:take st (fr:arg words) #f))
+        ((equal? op "finer") (fr:finer st))
+        ((equal? op "coarser") (fr:coarser st))
+        ((equal? op "reduce") (fr:reduce st))
+        ((equal? op "same") (fr:same st))
+        ((equal? op "add") (fr:add st))
+        (#t (fr:fail "看不懂这一句" st))))))
+
+(define (fr:command state text)
+  (let ((raw (bits:trim text)))
+    (cond
+      ((equal? raw "") (fr:ok state))
+      ((equal? raw "state") (fr:ok state))
+      ((not (< (string-index raw "(define" 0) 0)) (fr:from-text state raw))
+      (#t (fr:line state raw)))))
+
+(define (fr:source st)
+  (bits:cat (list
+    ";; 果果的分数课 — 分子和分母是两个整数\n"
+    "(define *num* \"" (number->string (fr:num st)) "\")\n"
+    "(define *den* \"" (number->string (fr:den st)) "\")\n"
+    "(define *num2* \"" (number->string (fr:num2 st)) "\")\n"
+    "(define *den2* \"" (number->string (fr:den2 st)) "\")\n")))
+
+(define (fr:names)
+  (list "*num*" "*den*" "*num2*" "*den2*"))
+
+(define (fr:lit-text id)
+  (let ((node (query :node id)))
+    (if (and (pair? node) (pair? (cdr node)) (string? (car (cdr node))))
+      (car (cdr node))
+      #f)))
+
+(define (fr:literal-of name)
+  (let ((found (query :find name)))
+    (if (and (pair? found) (integer? (car found)))
+      (let ((kids (query :children (car found))))
+        (if (and (pair? kids) (integer? (car kids)))
+          (let ((text (fr:lit-text (car kids))))
+            (if (string? text) (car kids) #f))
+          #f))
+      #f)))
+
+(define (fr:pin!)
+  (let ((names (fr:names)) (ids (list)) (ok #t))
+    (while (lambda () (and ok (pair? names)))
+      (lambda ()
+        (let ((id (fr:literal-of (car names))))
+          (if (integer? id)
+            (set! ids (cons id ids))
+            (set! ok #f)))
+        (set! names (cdr names))))
+    (if ok
+      (begin (set! *ids* (bits:reverse ids)) #t)
+      #f)))
+
+(define (fr:texts)
+  (if (not (pair? *ids*))
+    #f
+    (let ((p *ids*) (out (list)) (ok #t))
+      (while (lambda () (and ok (pair? p)))
+        (lambda ()
+          (let ((text (fr:lit-text (car p))))
+            (if (string? text)
+              (set! out (cons text out))
+              (set! ok #f)))
+          (set! p (cdr p))))
+      (if ok (bits:reverse out) #f))))
+
+(define (fr:state)
+  (let ((texts (fr:texts)))
+    (if (not (pair? texts))
+      #f
+      (let ((r (fr:from-text (fr:fresh)
+                             (bits:cat (list
+                               "(define *num* \"" (car texts) "\") "
+                               "(define *den* \"" (bits:nth texts 1) "\") "
+                               "(define *num2* \"" (bits:nth texts 2) "\") "
+                               "(define *den2* \"" (bits:nth texts 3) "\")")))))
+        (if (equal? (car r) #t) (bits:nth r 2) #f)))))
+
+(define (fr:want state)
+  (list (number->string (fr:num state))
+        (number->string (fr:den state))
+        (number->string (fr:num2 state))
+        (number->string (fr:den2 state))))
+
+(define (fr:join xs sep)
+  (let ((out "") (p xs) (first #t))
+    (while (lambda () (pair? p))
+      (lambda ()
+        (if first
+          (begin (set! out (car p)) (set! first #f))
+          (set! out (bits:cat (list out sep (car p)))))
+        (set! p (cdr p))))
+    out))
+
+(define (fr:define-id name)
+  (let ((found (query :find name)))
+    (if (and (pair? found) (integer? (car found)))
+      (car found)
+      #f)))
+
+(define (fr:forget-touch!)
+  (set! *touched* (list))
+  #t)
+
+(define (fr:touched? name)
+  (let ((p *touched*) (hit #f))
+    (while (lambda () (and (not hit) (pair? p)))
+      (lambda ()
+        (if (string=? (car p) name)
+          (set! hit #t)
+          (set! p (cdr p)))))
+    hit))
+
+(define (fr:count xs)
+  (let ((n 0) (p xs))
+    (while (lambda () (pair? p))
+      (lambda ()
+        (set! n (+ n 1))
+        (set! p (cdr p))))
+    n))
+
+(define (fr:snapshot)
+  (if (not (pair? *ids*))
+    (list)
+    (let ((names (fr:names)) (ids *ids*) (out (list)))
+      (while (lambda () (and (pair? names) (pair? ids)))
+        (lambda ()
+          (let ((def (fr:define-id (car names)))
+                (lit (car ids))
+                (text (fr:lit-text lit)))
+            (set! out (cons (list (car names)
+                                  (if (integer? def) def -1)
+                                  lit
+                                  (if (string? text) text "")
+                                  (if (fr:touched? (car names)) 1 0))
+                            out)))
+          (set! names (cdr names))
+          (set! ids (cdr ids))))
+      (bits:reverse out))))
+
+(define (fr:label n changed)
+  (let ((info (mutation-log:summary)))
+    (let ((id (hash-ref info "last-mutation-id"))
+          (node (hash-ref info "last-target-node"))
+          (verb (if (> n 1) "atomic-batch" "replace-value")))
+      (if (and (integer? id) (integer? node))
+        (bits:cat (list verb " #" (number->string id)
+                        "，改了工作区里的 " changed
+                        "。最后写进节点 " (number->string node)))
+        (bits:cat (list verb "，改了工作区里的 " changed))))))
+
+(define (fr:commit! state)
+  (fr:forget-touch!)
+  (let ((want (fr:want state)) (ids *ids*))
+    (if (or (not (pair? want)) (not (pair? ids)))
+      #f
+      (let ((ops (list)) (changed (list)) (p ids) (w want) (names (fr:names)) (ok #t))
+        (while (lambda () (and ok (pair? p) (pair? w) (pair? names)))
+          (lambda ()
+            (let ((now (fr:lit-text (car p))))
+              (if (not (string? now))
+                (set! ok #f)
+                (if (not (string=? now (car w)))
+                  (begin
+                    (set! ops (cons (list "mutate:replace-value" (car p) (car w) "guoguo") ops))
+                    (set! changed (cons (car names) changed)))
+                  #t)))
+            (set! p (cdr p))
+            (set! w (cdr w))
+            (set! names (cdr names))))
+        (cond
+          ((not ok) #f)
+          ((not (pair? changed)) "")
+          (#t
+           (let ((names-changed (fr:join (bits:reverse changed) "、"))
+                 (n (fr:count changed)))
+             (if (not (equal? (mutate:atomic-batch (bits:reverse ops) "guoguo"
+                                                  :sync-query-index? #f) #t))
+               #f
+               (let ((back (fr:texts)))
+                 (if (equal? back want)
+                   (begin
+                     (set! *touched* (bits:reverse changed))
+                     (fr:label n names-changed))
+                   #f))))))))))
+
+(define (fr:break s)
+  (let ((key ") (define ") (n (string-length s)) (m 10) (i 0) (out ""))
+    (while (lambda () (< i n))
+      (lambda ()
+        (if (and (<= (+ i m) n) (string=? (substring s i (+ i m)) key))
+          (begin
+            (set! out (string-append out ")\n(define "))
+            (set! i (+ i m)))
+          (begin
+            (set! out (string-append out (fr:ch (string-ref s i))))
+            (set! i (+ i 1))))))
+    out))
+
+(define (fr:pretty src)
+  (if (not (string? src))
+    ""
+    (let ((s src) (n (string-length src)))
+      (if (and (> n 0) (= (string-ref s (- n 1)) 10))
+        (begin (set! s (substring s 0 (- n 1))) (set! n (string-length s))))
+      (if (and (>= n 7) (string=? (substring s 0 7) "(begin "))
+        (set! s (substring s 7 (- n 1))))
+      (fr:break s))))
+
+(define (fr:install! path)
+  (let ((text (read-file path)))
+    (if (not (string? text))
+      #f
+      (begin
+        (set-code text)
+        (eval-current)
+        (fr:pin!)))))
+
+(define (fr:json-bool b) (if b "true" "false"))
+
+(define (fr:json-nodes nodes)
+  (let ((out "[") (p nodes) (first #t))
+    (while (lambda () (pair? p))
+      (lambda ()
+        (let ((row (car p)))
+          (if first
+            (set! first #f)
+            (set! out (string-append out ",")))
+          (set! out (bits:cat (list out
+            "{\"name\":" (bits:json-string (bits:nth row 0))
+            ",\"define\":" (number->string (bits:nth row 1))
+            ",\"literal\":" (number->string (bits:nth row 2))
+            ",\"text\":" (bits:json-string (bits:nth row 3))
+            ",\"changed\":" (if (= (bits:nth row 4) 1) "true" "false")
+            "}"))))
+        (set! p (cdr p))))
+    (string-append out "]")))
+
+(define (fr:json-view state ok? err note source workspace mut nodes)
+  (let ((sum (fr:sum state)))
+    (bits:cat (list
+      "{"
+      (bits:cat (list
+        "\"ok\":" (fr:json-bool (equal? ok? #t))
+        ",\"error\":" (bits:json-string err)
+        ",\"note\":" (bits:json-string note)
+        ",\"lesson\":\"fractions\""
+        ",\"num\":" (number->string (fr:num state))
+        ",\"den\":" (number->string (fr:den state))
+        ",\"num2\":" (number->string (fr:num2 state))
+        ",\"den2\":" (number->string (fr:den2 state))
+        ",\"quot\":" (number->string (/ (fr:num state) (fr:den state)))
+        ",\"sumOk\":" (fr:json-bool (pair? sum))
+        ",\"sumNum\":" (number->string (if (pair? sum) (car sum) 0))
+        ",\"sumDen\":" (number->string (if (pair? sum) (bits:nth sum 1) 0))
+        ",\"source\":" (bits:json-string source)
+        ",\"workspace\":" (bits:json-string workspace)
+        ",\"mut\":" (bits:json-string mut)
+        ",\"nodes\":" (fr:json-nodes nodes)))
+      "}"))))

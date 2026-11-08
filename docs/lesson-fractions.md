@@ -4,7 +4,7 @@
 
 不讲小数、循环小数、浮点、负分、带分数的运算公式。纸可以留着当没有屏幕时的备份：一条纸条，对折再对折。
 
-这课还没做页面，名册里是 `soon`。做好之后打开 `make run`，浏览器进 `/fractions.html`。第 2 课用 `/?lesson=2`。一次只跑一门课，不要和开关课挤在同一个工作区里。
+打开 `make run`，浏览器进 `/fractions.html`。第 2 课用 `/fractions.html?lesson=2`。从开关课点过来时，服务会先把开关课写进 `runtime/live.aura`，再装分数课。回去时分数课写进 `runtime/fractions.aura`。一次只看着一门课的工作区。
 
 课上反复说的三句：
 
@@ -86,8 +86,8 @@
 
 纯计算放在 `aura/fractions.aura`，不碰工作区。需要的只有：公约数、约分、同时翻倍、把两个分母切成一样、比较、相加。相加的结果用来画第三条，不写回工作区。
 
-页面是 `web/fractions.html`，课程条的 `data-course` 用 `fractions`。做完这些，名册里的 `status` 再改成 `open`。
+页面是 `web/fractions.html`，课程条的 `data-course` 用 `fractions`。名册里这课是 `open`。
 
-服务仍是现在这一个。`GUOGUO_LESSON=fractions make run` 时装分数种子，原文写到 `runtime/fractions.aura`。不设的时候仍是开关课，写到 `runtime/live.aura`。一次进程只上一门，避免把另一门课的现场换掉。
+服务仍是现在这一个。从开关课打开分数页时，先把开关课写进 `runtime/live.aura`，再装分数种子，并从 `runtime/fractions.aura` 接着上次的四个数。回去时反过来。一次只看着一门课的工作区，两门的现场分开放。`GUOGUO_LESSON=fractions make run` 则一开始就进分数课。
 
 命令先定这些：`cut 4`、`take 1`、`finer`、`coarser`、`reduce`、`cut2 3`、`take2 1`、`same`、`add`。分母小于 1、大于 24，或分子不在 0 和分母之间，命令失败，四个数都不变。24 是为了长条还能一格格点，不是数学上的限制。

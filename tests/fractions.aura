@@ -1,0 +1,120 @@
+; 分数课的命令和工作区。不打开网络。
+(require "aura/bits" all:)
+(require "aura/fractions" all:)
+
+(define *fails* 0)
+
+(define (expect name got want)
+  (if (equal? got want)
+    #t
+    (begin
+      (set! *fails* (+ *fails* 1))
+      (display "FAIL ")
+      (display name)
+      (display " / got ")
+      (display got)
+      (display " / want ")
+      (display want)
+      (newline))))
+
+(define (quad st)
+  (list (bits:nth st 0) (bits:nth st 1) (bits:nth st 2) (bits:nth st 3)))
+
+(define (def-id name) (car (query :find name)))
+
+(define (lit-id name)
+  (car (query :children (def-id name))))
+
+(define (lit-text name)
+  (let ((node (query :node (lit-id name))))
+    (car (cdr node))))
+
+(define (has text key)
+  (and (string? text) (not (= (string-index text key 0) -1))))
+
+(define fresh (fr:fresh))
+(expect "fresh" (quad fresh) (list 1 2 1 3))
+
+(define view (fr:json-view fresh #t "" "" "" "" "" (list)))
+(expect "quot" (has view "\"quot\":0") #t)
+(expect "sum num" (has view "\"sumNum\":5") #t)
+(expect "sum den" (has view "\"sumDen\":6") #t)
+(expect "sum ok" (has view "\"sumOk\":true") #t)
+
+(define samed (fr:command fresh "same"))
+(expect "same ok" (bits:ok? samed) #t)
+(expect "same" (quad (bits:result samed)) (list 3 6 2 6))
+
+(define added (fr:command (bits:result samed) "add"))
+(expect "add ok" (bits:ok? added) #t)
+(expect "add kept" (quad (bits:result added)) (list 3 6 2 6))
+
+(define cut (fr:command fresh "cut 4"))
+(expect "cut" (quad (bits:result cut)) (list 1 4 1 3))
+(define took (fr:command (bits:result cut) "take 3"))
+(expect "take" (quad (bits:result took)) (list 3 4 1 3))
+(define finer (fr:command (bits:result took) "finer"))
+(expect "finer" (quad (bits:result finer)) (list 6 8 1 3))
+(define reduced (fr:command (bits:result finer) "reduce"))
+(expect "reduce" (quad (bits:result reduced)) (list 3 4 1 3))
+
+(define zero (fr:command fresh "cut 0"))
+(expect "cut 0" (bits:ok? zero) #f)
+(expect "cut 0 kept" (quad (bits:result zero)) (list 1 2 1 3))
+(expect "cut 0 msg" (bits:error zero) "分母要在 1 和 24 之间")
+
+(define huge (fr:command fresh "cut 25"))
+(expect "cut 25" (bits:ok? huge) #f)
+(expect "cut 25 kept" (quad (bits:result huge)) (list 1 2 1 3))
+
+(define past (fr:command fresh "take 3"))
+(expect "take past" (bits:ok? past) #f)
+(expect "take past kept" (quad (bits:result past)) (list 1 2 1 3))
+(expect "take past msg" (bits:error past) "拿走的份数要在 0 和分母之间")
+
+(if (not (equal? (fr:install! "aura/fraction-seed.aura") #t))
+  (begin (display "FRACTION_FAIL pin\n") (exit 1)))
+
+(expect "pinned" (quad (fr:state)) (list 1 2 1 3))
+(expect "seed num" (lit-text "*num*") "1")
+(define num-lit (lit-id "*num*"))
+(define num-def (def-id "*num*"))
+(define den-lit (lit-id "*den*"))
+(define den-def (def-id "*den*"))
+
+(define before (current-source :workspace))
+(define step (fr:command (fr:state) "finer"))
+(define wrote (fr:commit! (bits:result step)))
+(expect "batch" (has wrote "atomic-batch") #t)
+(expect "finer num" (lit-text "*num*") "2")
+(expect "finer den" (lit-text "*den*") "4")
+(expect "finer num2" (lit-text "*num2*") "1")
+(expect "same num lit" (lit-id "*num*") num-lit)
+(expect "same num def" (def-id "*num*") num-def)
+(expect "same den lit" (lit-id "*den*") den-lit)
+(expect "same den def" (def-id "*den*") den-def)
+(expect "source moved" (equal? before (current-source :workspace)) #f)
+
+(define took-one (fr:command (fr:state) "take 1"))
+(define wrote-one (fr:commit! (bits:result took-one)))
+(expect "one verb" (has wrote-one "replace-value") #t)
+(expect "took num" (lit-text "*num*") "1")
+(expect "took den" (lit-text "*den*") "4")
+(expect "took lit" (lit-id "*num*") num-lit)
+(expect "took def" (def-id "*num*") num-def)
+
+(define frozen (current-source :workspace))
+(define bad (fr:command (fr:state) "take 9"))
+(expect "bad" (bits:ok? bad) #f)
+(expect "bad still" (equal? frozen (current-source :workspace)) #t)
+(expect "bad num" (lit-text "*num*") "1")
+(expect "bad commit" (fr:commit! (bits:result bad)) "")
+(expect "bad after" (equal? frozen (current-source :workspace)) #t)
+
+(if (= *fails* 0)
+  (begin (display "FRACTION_OK\n") (exit 0))
+  (begin
+    (display "FRACTION_FAIL ")
+    (display *fails*)
+    (newline)
+    (exit 1)))

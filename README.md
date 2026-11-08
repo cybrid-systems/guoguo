@@ -23,7 +23,7 @@ make run
 
 换端口：`GUOGUO_PORT=8770 make run`。
 
-开关课怎么讲，写在 [`docs/lesson-1.md`](docs/lesson-1.md)。分数课的讲稿在 [`docs/lesson-fractions.md`](docs/lesson-fractions.md)，页面还没做，名册里是还没开。做好之后用 `GUOGUO_LESSON=fractions make run`，一次进程只上一门课。
+开关课怎么讲，写在 [`docs/lesson-1.md`](docs/lesson-1.md)。分数课是 <http://127.0.0.1:8765/fractions.html>，讲稿在 [`docs/lesson-fractions.md`](docs/lesson-fractions.md)。从开关课点过去会换工作区：开关课留在 `runtime/live.aura`，分数课留在 `runtime/fractions.aura`。`GUOGUO_LESSON=fractions make run` 则一开始就进分数课。
 
 ## 检查
 
@@ -40,7 +40,10 @@ make test
 | `aura/bits.aura` | 位、进制、字母、颜色、像素。纯计算，不碰工作区 |
 | `aura/board-seed.aura` | 装进工作区的七个定义 |
 | `aura/board.aura` | 钉住字面量节点，并用 replace-value 改它们 |
-| `aura/serve.aura` | 只听本机的预览服务 |
+| `aura/fractions.aura` | 分数的计算，以及四个字面量的 replace-value |
+| `aura/fraction-seed.aura` | 装进工作区的四个定义 |
+| `aura/serve.aura` | 只听本机的预览服务。开关课和分数课共用，换页时换工作区 |
+| `web/fractions.html` | 分数课 |
 | `courses/catalog.json` | 课程名册。加一课先改这里 |
 | `web/index.html` | 开关课 |
 | `web/courses.html` | 全部课程 |
@@ -65,3 +68,5 @@ make test
 `GET /api/state` 拿整份状态。`POST /api` 的正文是一行命令，或整段带 `(define *bits* "…")` 的程序。成功和失败都回 JSON；失败时位不变。`nodes` 里每一项是工作区里的一个定义和它的字符串字面量。`replace-value` 之后 `define` 和 `literal` 编号不变，变的是 `text`。这一下改过的格子 `changed` 为真。
 
 常用命令：`flip 0`、`set dec 65`、`set bin 01000001`、`set oct 101`、`set hex 41`、`set letter A`、`width 8`、`lamp 0`、`color ff0000`、`chan red hex 80`、`pix 0 2`、`stamp smile`、`reload`。
+
+分数课用 `GET /api/fractions/state` 和 `POST /api/fractions`。命令有 `cut 4`、`take 1`、`finer`、`coarser`、`reduce`、`cut2 3`、`take2 1`、`same`、`add`。`add` 不改四个数，只在 JSON 里给出 `sumNum` 和 `sumDen`。`quot` 是整数除法 `(/ num den)`，所以 1/2 的 `quot` 是 0。

@@ -1,0 +1,6 @@
+;; 果果的分数课。这四个定义会被装进正在跑的工作区。
+;; 页面上的每一次改动都是 mutate:replace-value，改的是这里的字面量。
+(define *num* "1")
+(define *den* "2")
+(define *num2* "1")
+(define *den2* "3")

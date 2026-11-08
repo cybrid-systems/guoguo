@@ -8,7 +8,8 @@
         bits:source bits:json bits:json-view bits:hex bits:oct bits:from-int
         bits:letter bits:lamp bits:width bits:value bits:red bits:green
         bits:blue bits:rows bits:nth bits:hex-grouped bits:oct-grouped
-        bits:trim bits:field bits:apply-fields bits:reverse bits:cat)
+        bits:trim bits:field bits:apply-fields bits:reverse bits:cat
+        bits:json-string)
 
 (define (bits:ok state) (list #t "" state))
 (define (bits:fail msg state) (list #f msg state))

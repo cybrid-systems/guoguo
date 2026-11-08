@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>果果的分数课</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23f4efe4'/%3E%3Crect x='4' y='8' width='11' height='16' rx='2' fill='%23e2a320'/%3E%3Crect x='17' y='8' width='11' height='16' rx='2' fill='%23fffdf8' stroke='%231f1a14'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --paper: #f4efe4;
+    --ink: #1f1a14;
+    --card: #fffdf8;
+    --line: #e4d8c4;
+    --gold: #e2a320;
+    --coral: #c4492c;
+    --sea: #23406e;
+    --leaf: #1f6b4a;
+    --shadow: 0 10px 30px rgba(60, 40, 10, 0.06);
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    color: var(--ink);
+    background:
+      radial-gradient(circle at 8% -10%, #fff 0%, transparent 36%),
+      var(--paper);
+    font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Source Han Sans SC", sans-serif;
+    line-height: 1.5;
+  }
+  button, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  :focus-visible { outline: 3px solid var(--sea); outline-offset: 2px; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 28px 20px 64px; }
+  .stage { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; align-items: start; }
+  header h1 {
+    font-family: Palatino, "Iowan Old Style", "Songti SC", "Noto Serif SC", serif;
+    font-size: 52px;
+    line-height: 1;
+    margin: 0 0 8px;
+    font-weight: 600;
+  }
+  .eyebrow { margin: 0 0 8px; letter-spacing: 0.08em; color: var(--coral); font-size: 13px; }
+  .lead { margin: 0 0 18px; max-width: 40em; font-size: 18px; }
+  nav { display: flex; gap: 8px; flex-wrap: wrap; }
+  #course-bar { margin: 0 0 14px; }
+  #course-bar a, #course-bar span {
+    border: 1px solid var(--line); background: var(--card); border-radius: 999px;
+    padding: 6px 12px; text-decoration: none; color: inherit;
+  }
+  #course-bar a[aria-current="page"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  #course-bar .soon { color: #6d6256; }
+  nav button, .tools button {
+    border: 1px solid var(--line);
+    background: var(--card);
+    border-radius: 999px;
+    padding: 8px 14px;
+  }
+  nav button[aria-selected="true"], .tools button[aria-pressed="true"] {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+  #note, #toast { margin: 14px 0 0; border-radius: 12px; padding: 10px 14px; }
+  #note { background: #fff4d6; }
+  #toast { background: #fde8e2; color: #8a2b1b; }
+  section.block, .aura {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    padding: 18px 18px 20px;
+    margin-top: 14px;
+    box-shadow: var(--shadow);
+  }
+  h2 { font-size: 22px; margin: 0 0 8px; }
+  h3 { margin: 0 0 6px; font-size: 16px; }
+  .muted { color: #6d6256; }
+  .whole {
+    display: flex; align-items: center; justify-content: space-between;
+    border: 1px dashed var(--line); border-radius: 16px; padding: 8px 12px;
+    background: #fbf7f0; margin-bottom: 8px;
+  }
+  .frac {
+    display: inline-flex; flex-direction: column; align-items: center;
+    min-width: 2.4em; font-variant-numeric: tabular-nums;
+    font-family: Palatino, "Songti SC", "Noto Serif SC", serif;
+    font-size: 28px; line-height: 1.05;
+  }
+  .frac i { display: block; width: 100%; height: 2px; background: var(--ink); margin: 2px 0; font-style: normal; }
+  .bar {
+    display: flex; gap: 4px; min-height: 72px; margin: 10px 0 12px;
+  }
+  .cell {
+    flex: 1 1 0; min-width: 0; border-radius: 10px;
+    border: 1px solid var(--line); background: #f4efe4; padding: 0;
+  }
+  button.cell.on { background: var(--gold); border-color: #b78412; }
+  .cell.sum { background: #d5e4f5; border-color: var(--sea); }
+  .cell.sum.on { background: var(--sea); }
+  .tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+  .quot {
+    font-family: ui-monospace, "Source Code Pro", monospace;
+    background: #fbf7f0; border-radius: 12px; padding: 10px 12px;
+  }
+  .aura {
+    position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow: auto;
+  }
+  .aura textarea {
+    width: 100%; min-height: 168px; border-radius: 14px; border: 0; padding: 14px;
+    background: #1f1a14; color: #f4efe4;
+    font-family: ui-monospace, "Source Code Pro", monospace;
+    font-size: 14px; line-height: 1.45;
+  }
+  .aura .tools #apply { flex: 1 1 100%; background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  #sheet-toggle { display: none; }
+  .sync { margin: 8px 0 0; }
+  .echo {
+    display: block; width: 100%; margin: 10px 0 0; padding: 8px 12px; text-align: left;
+    border: 1px solid var(--line); border-radius: 12px; background: #fff8ea;
+    font-family: ui-monospace, "Source Code Pro", monospace; font-size: 13.5px;
+  }
+  .echo.hot { border-color: var(--coral); background: #fff1ea; }
+  .nodes { display: flex; flex-direction: column; gap: 10px; margin: 10px 0; }
+  .node-group { display: flex; flex-direction: column; gap: 6px; }
+  .node-label { margin: 0; font-size: 12px; letter-spacing: 0.06em; color: #6d6256; }
+  .node-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .node {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+    flex: 1 1 120px; min-width: 0; border: 1px solid var(--line); background: #fbf7f0;
+    border-radius: 14px; padding: 8px 10px; text-align: left;
+  }
+  .node-kicker { font-size: 12px; color: #6d6256; }
+  .node b { font-size: 14px; }
+  .node .nid { color: #6d6256; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .node code { font-family: ui-monospace, "Source Code Pro", monospace; font-size: 13px; }
+  .node.changed { border-color: var(--coral); background: #fff1ea; }
+  .node.picked { border-color: var(--sea); box-shadow: 0 0 0 2px rgba(35, 64, 110, 0.35); }
+  .spot { outline: 3px solid var(--coral); outline-offset: 4px; border-radius: 18px; }
+  .mut { margin: 0 0 8px; color: #8a3d12; font-weight: 700; }
+  .sheet-note { font-size: 13px; }
+  #workspace {
+    white-space: pre-wrap; word-break: break-all; background: #f4efe4;
+    border-radius: 12px; padding: 12px; font-size: 13px;
+  }
+  .mono { font-family: ui-monospace, "Source Code Pro", monospace; }
+  footer { margin-top: 18px; color: #6d6256; }
+  @media (max-width: 980px) {
+    header h1 { font-size: 40px; }
+  }
+  @media (max-width: 900px) {
+    .stage { grid-template-columns: 1fr; }
+    body { padding-bottom: 92px; }
+    .block, .bar { scroll-margin-bottom: 120px; }
+    .aura {
+      position: fixed; left: 10px; right: 10px; bottom: 10px; top: auto;
+      margin: 0; z-index: 20; max-height: min(78vh, 640px);
+    }
+    .aura:not(.open) .sheet-body { display: none; }
+    #sheet-toggle {
+      display: flex; width: 100%; align-items: center; justify-content: space-between;
+      gap: 8px; border: 0; background: transparent; padding: 0 0 2px; text-align: left;
+    }
+    .sheet-title { font-weight: 700; }
+    .sheet-now {
+      color: #6d6256; font-family: ui-monospace, "Source Code Pro", monospace;
+      font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <nav id="course-bar" data-course="fractions" aria-label="课程">
+      <a href="/courses.html">全部课程</a>
+    </nav>
+    <p class="eyebrow">果果编程课 · 分数课</p>
+    <h1>分数课</h1>
+    <p class="lead">一块东西切成同样大的几份。分数是两个整数，加上怎么把它们画出来。</p>
+    <nav>
+      <button type="button" data-tab="1" aria-selected="true">第 1 课 · 切开，拿走</button>
+      <button type="button" data-tab="2" aria-selected="false">第 2 课 · 谁大，加在一起</button>
+    </nav>
+    <details>
+      <summary>给一起上课的人</summary>
+      <p>三句话就够：分数是切成同样大的几份，再拿走其中几份；上面是拿走的，下面是切成的；分母不能是 0。点格子，分子变。按「切得更细」，分子和分母一起变，亮着的长度不变。孩子贴来的正文不会被整段 set-code。完整的两节课在 <span class="mono">docs/lesson-fractions.md</span>。</p>
+    </details>
+  </header>
+  <p id="note" hidden></p>
+  <p id="toast" role="status" hidden></p>
+
+  <div class="stage">
+  <div class="lesson-col">
+  <div id="lesson1">
+    <section class="block">
+      <h2>切开，拿走</h2>
+      <p>这一整条是 1。先切开，再点亮拿走的那些格。上面的数是拿走的份数，下面的数是切成的份数。</p>
+      <div class="whole"><span>1 整块</span><span id="frac1" class="frac"></span></div>
+      <div id="bar1" class="bar" role="group" aria-label="第一条长条"></div>
+      <div class="tools" id="cuts">
+        <button type="button" data-cmd="cut 2" data-cut="2">切成 2 份</button>
+        <button type="button" data-cmd="cut 3" data-cut="3">切成 3 份</button>
+        <button type="button" data-cmd="cut 4" data-cut="4">切成 4 份</button>
+        <button type="button" data-cmd="cut 6" data-cut="6">切成 6 份</button>
+        <button type="button" data-cmd="cut 8" data-cut="8">切成 8 份</button>
+      </div>
+      <div class="tools">
+        <button type="button" data-cmd="finer" id="finer">切得更细</button>
+        <button type="button" data-cmd="coarser" id="coarser">切得更粗</button>
+        <button type="button" data-cmd="reduce">收成最简</button>
+        <button type="button" data-cmd="take 0">拿走 0 份</button>
+      </div>
+      <p class="muted">最多 24 格，才一格格点得清。分子不能比分母大。分母写成 0，页面不接受。</p>
+      <button type="button" class="echo" id="echo-1" data-echo="*num*"></button>
+    </section>
+  </div>
+
+  <div id="lesson2" hidden>
+    <section class="block">
+      <h2>两条长条</h2>
+      <p>先看第一条，再看第二条。格子不一样大的时候，不能只比分子。</p>
+      <h3>第一条</h3>
+      <div class="whole"><span>第一条</span><span id="frac1b" class="frac"></span></div>
+      <div id="bar1b" class="bar" role="group" aria-label="第一条长条"></div>
+      <h3>第二条</h3>
+      <div class="whole"><span>第二条</span><span id="frac2" class="frac"></span></div>
+      <div id="bar2" class="bar" role="group" aria-label="第二条长条"></div>
+      <div class="tools">
+        <button type="button" data-cmd="cut2 2" data-cut2="2">第二条切成 2 份</button>
+        <button type="button" data-cmd="cut2 3" data-cut2="3">切成 3 份</button>
+        <button type="button" data-cmd="cut2 4" data-cut2="4">切成 4 份</button>
+        <button type="button" data-cmd="cut2 6" data-cut2="6">切成 6 份</button>
+        <button type="button" data-cmd="cut2 8" data-cut2="8">切成 8 份</button>
+        <button type="button" data-cmd="take2 0">第二条拿走 0 份</button>
+      </div>
+      <p id="compare"></p>
+      <div class="tools">
+        <button type="button" data-cmd="same">切成一样</button>
+        <button type="button" data-cmd="add">加起来</button>
+        <button type="button" data-cmd="reduce">收成最简</button>
+      </div>
+      <button type="button" class="echo" id="echo-2" data-echo="*num2*"></button>
+    </section>
+
+    <section class="block" id="sum-block">
+      <h2>加起来</h2>
+      <p id="sum-note" class="muted">和是画出来的。程序里仍然只有原来的四个数。</p>
+      <div class="whole"><span>加起来</span><span id="frac-sum" class="frac"></span></div>
+      <div id="bar-sum" class="bar" role="img" aria-label="加起来的长条" hidden></div>
+    </section>
+
+    <section class="block">
+      <h2>除法丢掉了剩下的</h2>
+      <p class="quot" id="quot"></p>
+      <p>两个整数相除，只留下能分成整块的部分。所以这课不把分数存成除法的结果，而是存两个整数。画的时候才合成一块。</p>
+    </section>
+  </div>
+  </div>
+
+  <aside class="aura" id="aura" aria-label="双向预览">
+    <button type="button" id="sheet-toggle" aria-expanded="false" aria-controls="sheet-body">
+      <span class="sheet-title">双向预览</span>
+      <span id="sheet-now" class="sheet-now"></span>
+    </button>
+    <div class="sheet-body" id="sheet-body">
+      <h2>双向预览</h2>
+      <p>点格子，这里的字马上变。改下面的程序，再按「用这段程序更新画面」，长条跟着变。点一格，会跳到它管的那一条。</p>
+      <p class="quot" id="quot-side"></p>
+      <div id="nodes" class="nodes" aria-label="工作区里的字面量节点"></div>
+      <p id="mut" class="mut" hidden></p>
+      <p class="node-label">整段程序</p>
+      <textarea id="source" spellcheck="false" aria-label="Aura 程序"></textarea>
+      <details>
+        <summary>工作区原文</summary>
+        <pre id="workspace" class="mono"></pre>
+      </details>
+      <div class="tools">
+        <button type="button" id="apply">用这段程序更新画面</button>
+        <button type="button" id="revert">放弃修改</button>
+        <button type="button" id="reload">从文件读回来</button>
+      </div>
+      <p class="sync" id="sync">画面和程序一致</p>
+      <p class="muted sheet-note">改一个数是一次 replace-value。切得更细、收成最简、切成一样要同时改两个数，用一次 atomic-batch。定义和字面量的编号不变。</p>
+    </div>
+  </aside>
+  </div>
+  <footer>果果编程课 · 分数是两个整数，加上怎么把它们画成一块。</footer>
+</div>
+<script>
+let state = null;
+let draft = false;
+let showedSum = false;
+let lastCmd = "";
+let chain = Promise.resolve();
+
+function post(cmd) {
+  const run = chain.then(() => send(cmd));
+  chain = run.catch(() => {});
+  return run;
+}
+
+async function send(cmd) {
+  lastCmd = cmd;
+  let res;
+  try {
+    res = await fetch("/api/fractions", {
+      method: "POST",
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+      body: cmd
+    });
+  } catch (err) {
+    toast("和 Aura 断了。看一下终端里的课还在不在。");
+    throw err;
+  }
+  if (!res.ok) {
+    toast("Aura 没有接住这一下。");
+    throw new Error("status");
+  }
+  applyState(await res.json());
+}
+
+function applyState(data) {
+  if (!data || typeof data.num !== "number") {
+    toast("服务还停在开关课，分数页没有接到工作区。");
+    return;
+  }
+  const cmd = String(lastCmd || "").trim();
+  if (cmd === "add" && data.ok) showedSum = true;
+  else if (cmd) showedSum = false;
+  state = data;
+  render();
+  const note = document.getElementById("note");
+  if (data.note) {
+    note.hidden = false;
+    note.textContent = data.note;
+  } else {
+    note.hidden = true;
+  }
+  toast(data.ok ? "" : (data.error || "没有做成"));
+  const mut = document.getElementById("mut");
+  if (data.mut) {
+    mut.hidden = false;
+    mut.textContent = data.mut;
+  } else {
+    mut.hidden = true;
+    mut.textContent = "";
+  }
+  document.getElementById("workspace").textContent = data.workspace || "";
+  renderNodes(data.nodes);
+  if (!draft) {
+    document.getElementById("source").value = data.source || "";
+    sync("画面和程序一致");
+  } else {
+    sync("程序还没应用。画面若已经变了，应用或放弃后会对齐。");
+  }
+}
+
+const nodeMeta = {
+  "*num*": "第一条分子",
+  "*den*": "第一条分母",
+  "*num2*": "第二条分子",
+  "*den2*": "第二条分母"
+};
+const nodeGroups = [
+  ["第一条", ["*num*", "*den*"]],
+  ["第二条", ["*num2*", "*den2*"]]
+];
+
+function wideScreen() {
+  return window.matchMedia("(min-width: 901px)").matches;
+}
+
+function setSheet(open) {
+  const aura = document.getElementById("aura");
+  aura.classList.toggle("open", open);
+  document.getElementById("sheet-toggle").setAttribute("aria-expanded", open ? "true" : "false");
+}
+
+function markLine(name, focus) {
+  const src = document.getElementById("source");
+  const at = src.value.indexOf("(define " + name);
+  if (at < 0) return;
+  const lineEnd = src.value.indexOf("\n", at);
+  if (focus) src.focus();
+  src.setSelectionRange(at, lineEnd < 0 ? src.value.length : lineEnd);
+  const line = src.value.slice(0, at).split("\n").length - 1;
+  src.scrollTop = Math.max(0, line * 20 - 12);
+}
+
+function pictureOf(name) {
+  const on2 = !document.getElementById("lesson2").hidden;
+  if (name === "*num2*" || name === "*den2*") return { lesson: 2, id: "bar2" };
+  return { lesson: on2 ? 2 : 1, id: on2 ? "bar1b" : "bar1" };
+}
+
+function selectDefine(name, go) {
+  document.querySelectorAll(".node").forEach((el) => {
+    el.classList.toggle("picked", el.dataset.name === name);
+  });
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (go === "program") {
+    if (!wideScreen()) setSheet(true);
+    markLine(name, true);
+  } else {
+    markLine(name, wideScreen());
+    const spot = pictureOf(name);
+    showLesson(spot.lesson);
+    const el = document.getElementById(spot.id);
+    if (el) {
+      if (!wideScreen()) setSheet(false);
+      el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+      el.classList.add("spot");
+      setTimeout(() => el.classList.remove("spot"), 1400);
+    }
+  }
+  const label = nodeMeta[name] || name;
+  sync(draft ? "程序改了，还没应用到画面。" : "点中的是" + label + "。编号不变，变的是引号里的字。");
+}
+
+function nodeButton(n) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "node" + (n.changed ? " changed" : "");
+  b.dataset.name = n.name;
+  const kicker = document.createElement("span");
+  kicker.className = "node-kicker";
+  kicker.textContent = nodeMeta[n.name] || "程序";
+  const title = document.createElement("b");
+  title.textContent = n.name;
+  const id = document.createElement("span");
+  id.className = "nid";
+  id.textContent = "定义 " + n.define + " → 字 " + n.literal;
+  const text = document.createElement("code");
+  text.textContent = '"' + n.text + '"';
+  b.setAttribute("aria-label", (nodeMeta[n.name] || n.name) + "，" + n.name + "，定义 " + n.define + "，字面量 " + n.literal);
+  b.append(kicker, title, id, text);
+  b.addEventListener("click", () => selectDefine(n.name, "picture"));
+  return b;
+}
+
+function renderNodes(nodes) {
+  const host = document.getElementById("nodes");
+  host.replaceChildren();
+  const byName = new Map((nodes || []).map((n) => [n.name, n]));
+  nodeGroups.forEach(([label, names]) => {
+    const group = document.createElement("div");
+    group.className = "node-group";
+    const cap = document.createElement("p");
+    cap.className = "node-label";
+    cap.textContent = label;
+    const row = document.createElement("div");
+    row.className = "node-row";
+    names.forEach((name) => {
+      const n = byName.get(name);
+      if (n) row.append(nodeButton(n));
+    });
+    group.append(cap, row);
+    host.append(group);
+  });
+  const changed = (nodes || []).filter((n) => n.changed);
+  const focus = changed[0] || byName.get("*num*");
+  document.getElementById("sheet-now").textContent = focus
+    ? (nodeMeta[focus.name] || focus.name) + " " + focus.text
+    : "";
+}
+
+function toast(msg) {
+  const el = document.getElementById("toast");
+  el.hidden = !msg;
+  el.textContent = msg || "";
+}
+
+function sync(msg) {
+  document.getElementById("sync").textContent = msg;
+}
+
+function showLesson(n) {
+  document.getElementById("lesson1").hidden = n !== 1;
+  document.getElementById("lesson2").hidden = n !== 2;
+  document.querySelectorAll("[data-tab]").forEach((b) => {
+    b.setAttribute("aria-selected", b.dataset.tab === String(n) ? "true" : "false");
+  });
+  const url = new URL(location.href);
+  if (n === 2) url.searchParams.set("lesson", "2");
+  else url.searchParams.delete("lesson");
+  history.replaceState(null, "", url);
+}
+
+function paintFrac(id, num, den) {
+  const el = document.getElementById(id);
+  el.replaceChildren();
+  const top = document.createElement("span");
+  top.textContent = String(num);
+  const line = document.createElement("i");
+  const bot = document.createElement("span");
+  bot.textContent = String(den);
+  el.append(top, line, bot);
+}
+
+function fillBar(host, den, num, kind) {
+  host.replaceChildren();
+  for (let i = 0; i < den; i++) {
+    const on = i < num;
+    if (kind === "sum") {
+      const cell = document.createElement("div");
+      cell.className = "cell sum" + (on ? " on" : "");
+      host.append(cell);
+      continue;
+    }
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "cell" + (on ? " on" : "");
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+    btn.setAttribute("aria-label", "第 " + (i + 1) + " 份，" + (on ? "拿走了" : "还在"));
+    btn.addEventListener("click", () => {
+      const next = (i === num - 1) ? i : i + 1;
+      post((kind === 2 ? "take2 " : "take ") + next);
+    });
+    host.append(btn);
+  }
+}
+
+function render() {
+  if (!state || typeof state.num !== "number") return;
+  const num = state.num;
+  const den = state.den;
+  const num2 = state.num2;
+  const den2 = state.den2;
+  paintFrac("frac1", num, den);
+  paintFrac("frac1b", num, den);
+  paintFrac("frac2", num2, den2);
+  fillBar(document.getElementById("bar1"), den, num, 1);
+  fillBar(document.getElementById("bar1b"), den, num, 1);
+  fillBar(document.getElementById("bar2"), den2, num2, 2);
+  document.querySelectorAll("[data-cut]").forEach((b) => {
+    const n = Number(b.dataset.cut);
+    b.disabled = num > n;
+    b.setAttribute("aria-pressed", den === n ? "true" : "false");
+  });
+  document.querySelectorAll("[data-cut2]").forEach((b) => {
+    const n = Number(b.dataset.cut2);
+    b.disabled = num2 > n;
+    b.setAttribute("aria-pressed", den2 === n ? "true" : "false");
+  });
+  document.getElementById("finer").disabled = den * 2 > 24;
+  document.getElementById("coarser").disabled = num % 2 !== 0 || den % 2 !== 0;
+  const hot = new Set((state.nodes || []).filter((n) => n.changed).map((n) => n.name));
+  const echo1 = document.getElementById("echo-1");
+  echo1.textContent = '(define *num* "' + num + '")  (define *den* "' + den + '")';
+  echo1.classList.toggle("hot", hot.has("*num*") || hot.has("*den*"));
+  const echo2 = document.getElementById("echo-2");
+  echo2.textContent = '(define *num2* "' + num2 + '")  (define *den2* "' + den2 + '")';
+  echo2.classList.toggle("hot", hot.has("*num2*") || hot.has("*den2*"));
+  let compare = "格子不一样大。先按「切成一样」，再数亮着的格子。";
+  if (den === den2) {
+    if (num === num2) compare = "分母一样，拿走的也一样多。";
+    else if (num > num2) compare = "分母一样。上面拿走的更多。";
+    else compare = "分母一样。下面拿走的更多。";
+  }
+  document.getElementById("compare").textContent = compare;
+  const sumBar = document.getElementById("bar-sum");
+  const sumNote = document.getElementById("sum-note");
+  if (showedSum && state.sumOk) {
+    sumBar.hidden = false;
+    paintFrac("frac-sum", state.sumNum, state.sumDen);
+    fillBar(sumBar, state.sumDen, state.sumNum, "sum");
+    sumBar.setAttribute("aria-label", "加起来是 " + state.sumNum + "/" + state.sumDen);
+    sumNote.textContent = "和是算出来的，四个数没有改。";
+  } else if (!state.sumOk) {
+    sumBar.hidden = true;
+    document.getElementById("frac-sum").replaceChildren();
+    sumNote.textContent = "加起来超过一整块，或者要切成比 24 还多的份。这课先不画。";
+  } else {
+    sumBar.hidden = true;
+    document.getElementById("frac-sum").replaceChildren();
+    sumNote.textContent = "按「加起来」。和画在下面，不写进程序。";
+  }
+  const quot = "(/ " + num + " " + den + ") 得到 " + state.quot + "。长条亮着 " + num + " 份，这个 " + state.quot + " 不是分数。";
+  document.getElementById("quot").textContent = quot;
+  document.getElementById("quot-side").textContent = quot;
+}
+
+document.querySelectorAll("[data-tab]").forEach((b) => {
+  b.addEventListener("click", () => showLesson(Number(b.dataset.tab)));
+});
+document.querySelectorAll("[data-cmd]").forEach((b) => {
+  b.addEventListener("click", () => {
+    if (!b.disabled) post(b.dataset.cmd);
+  });
+});
+document.getElementById("source").addEventListener("input", () => {
+  draft = true;
+  sync("程序改了，还没应用到画面。");
+});
+document.getElementById("apply").addEventListener("click", () => {
+  const text = document.getElementById("source").value;
+  post(text).then(() => {
+    if (state && state.ok) {
+      draft = false;
+      document.getElementById("source").value = state.source;
+      sync("画面和程序一致");
+    }
+  });
+});
+document.getElementById("revert").addEventListener("click", () => {
+  draft = false;
+  if (state) {
+    document.getElementById("source").value = state.source;
+    sync("画面和程序一致");
+  }
+});
+document.getElementById("reload").addEventListener("click", () => {
+  draft = false;
+  post("reload");
+});
+document.getElementById("sheet-toggle").addEventListener("click", () => {
+  const open = !document.getElementById("aura").classList.contains("open");
+  setSheet(open);
+});
+document.querySelectorAll("[data-echo]").forEach((el) => {
+  el.addEventListener("click", () => selectDefine(el.dataset.echo, "program"));
+});
+
+showLesson(new URLSearchParams(location.search).get("lesson") === "2" ? 2 : 1);
+chain = fetch("/api/fractions/state")
+  .then((res) => res.json())
+  .then((data) => applyState(data))
+  .catch(() => toast("还没连上 Aura。用 make run 打开，再刷新这一页。"));
+</script>
+<script src="/course-bar.js"></script>
+</body>
+</html>
