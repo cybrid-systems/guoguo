@@ -104,6 +104,9 @@
       linear-gradient(135deg, #fde8e2 46%, var(--coral) 46%, var(--coral) 54%, #fde8e2 54%);
     border-color: var(--coral);
   }
+  .cell.full { background: var(--ink); border-color: var(--ink); }
+  .stack { display: flex; flex-direction: column; gap: 8px; margin: 10px 0 12px; }
+  .stack > .bar { margin: 0; }
   .steps {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -124,6 +127,7 @@
       linear-gradient(135deg, #fde8e2 46%, var(--coral) 46%, var(--coral) 54%, #fde8e2 54%);
     border-color: var(--coral);
   }
+  .swatch.full { background: var(--ink); border-color: var(--ink); }
   .tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
   .quot {
     font-family: ui-monospace, "Source Code Pro", monospace;
@@ -271,7 +275,7 @@
         <button type="button" data-cmd="sub">减掉</button>
         <button type="button" data-cmd="reduce">收成最简</button>
       </div>
-      <p class="muted">按「加起来」或「减掉」，下面先画出切成一样的格子，再画出格子怎么合上或拿掉。四个数不改。</p>
+      <p class="muted">按「加起来」或「减掉」。格子多过一条，就再画一条整块。比 24 格还多，就写出一共是多少，不把小格画出来。四个数不改。</p>
       <button type="button" class="echo" id="echo-2" data-echo="*num2*"></button>
     </section>
 
@@ -292,7 +296,7 @@
             <h3 id="step2-title">2. 再数格子</h3>
             <p id="step2-note"></p>
             <div class="whole" id="step2-whole"><span id="step2-label">合在一起</span><span id="frac-result" class="frac"></span></div>
-            <div id="bar-result" class="bar" role="img" aria-label="算完以后的长条"></div>
+            <div id="bar-result" class="stack" role="img" aria-label="算完以后的长条"></div>
           </div>
         </div>
         <p class="legend" id="work-legend"></p>
@@ -547,6 +551,42 @@ function staticBar(host, den, klassAt) {
   }
 }
 
+function fillRow(host, den, klassAt) {
+  host.replaceChildren();
+  const row = document.createElement("div");
+  row.className = "bar";
+  staticBar(row, den, klassAt);
+  host.append(row);
+}
+
+function fillJoined(host, sd, sn, total, bars) {
+  host.replaceChildren();
+  const count = total === 0 ? 1 : bars;
+  for (let b = 0; b < count; b++) {
+    const row = document.createElement("div");
+    row.className = "bar";
+    staticBar(row, sd, (i) => {
+      const g = b * sd + i;
+      if (g < sn) return "from1 on";
+      if (g < total) return "from2 on";
+      return "";
+    });
+    host.append(row);
+  }
+}
+
+function fillSolid(host, count) {
+  host.replaceChildren();
+  for (let i = 0; i < count; i++) {
+    const row = document.createElement("div");
+    row.className = "bar";
+    const cell = document.createElement("div");
+    cell.className = "cell full";
+    row.append(cell);
+    host.append(row);
+  }
+}
+
 function legendItem(cls, text) {
   const span = document.createElement("span");
   const mark = document.createElement("i");
@@ -579,19 +619,34 @@ function paintWork() {
     lead.textContent = "格子数还没从 Aura 来。停掉终端里的课，拉下新的程序，再 make run。";
     return;
   }
-  if (!state.sameOk) {
+  if (!adding && !state.sameOk) {
     steps.hidden = true;
-    lead.textContent = adding
-      ? "加起来要先切成一样，那样会超过 24 格。这课先不画。"
-      : "减的时候要先切成一样，那样会超过 24 格。这课先不画。";
+    lead.textContent = "减的时候要先切成一样，那样会超过 24 格。这课先不画。";
+    return;
+  }
+  if (adding && typeof state.sumWhole !== "number") {
+    steps.hidden = true;
+    lead.textContent = "格子数还没从 Aura 来。停掉终端里的课，拉下新的程序，再 make run。";
     return;
   }
   steps.hidden = false;
-  lead.textContent = adding
-    ? "先把两条切成一样大的格子，再把亮着的格子合到一条上。"
-    : "先把两条切成一样大的格子，再从第一条里拿掉第二条那么多格。";
+  const drawCells = state.sameOk;
+  const knife = "分母是刀切出来的份数，两把刀不加在一起。";
+  if (!adding) {
+    lead.textContent = "先把两条切成一样大的格子，再从第一条里拿掉第二条那么多格。";
+  } else if (!drawCells) {
+    lead.textContent = "份数比 24 还多，每一格太小，不画出来。整块和剩下的数写在这里。";
+  } else if (state.sumWhole > 0) {
+    lead.textContent = "先切成一样大的格子。一条放不下，就再画一条整块。";
+  } else {
+    lead.textContent = "先把两条切成一样大的格子，再把亮着的格子合到一条上。";
+  }
   const step1 = document.getElementById("step1-note");
-  if (den === den2) {
+  if (!drawCells) {
+    step1.textContent = "原来第一条是 " + num + "/" + den + "，第二条是 " + num2 + "/" + den2
+      + "。切成一样是 " + sn + "/" + sd + " 和 " + sn2 + "/" + sd
+      + "。一共 " + sd + " 份，比 24 还多，不把每一格画出来。";
+  } else if (den === den2) {
     step1.textContent = "两条已经是同样大的格子，都是 " + sd + " 份。第一条拿走 " + sn + " 份，第二条拿走 " + sn2 + " 份。";
   } else {
     step1.textContent = "原来第一条是 " + num + "/" + den + "，第二条是 " + num2 + "/" + den2
@@ -601,10 +656,17 @@ function paintWork() {
   paintFrac("frac-same2", sn2, sd);
   const bar1 = document.getElementById("bar-same1");
   const bar2 = document.getElementById("bar-same2");
-  staticBar(bar1, sd, (i) => (i < sn ? "from1 on" : ""));
-  staticBar(bar2, sd, (i) => (i < sn2 ? "from2 on" : ""));
-  bar1.setAttribute("aria-label", "第一条切成 " + sd + " 份，拿走 " + sn + " 份");
-  bar2.setAttribute("aria-label", "第二条切成 " + sd + " 份，拿走 " + sn2 + " 份");
+  bar1.hidden = !drawCells;
+  bar2.hidden = !drawCells;
+  if (drawCells) {
+    staticBar(bar1, sd, (i) => (i < sn ? "from1 on" : ""));
+    staticBar(bar2, sd, (i) => (i < sn2 ? "from2 on" : ""));
+    bar1.setAttribute("aria-label", "第一条切成 " + sd + " 份，拿走 " + sn + " 份");
+    bar2.setAttribute("aria-label", "第二条切成 " + sd + " 份，拿走 " + sn2 + " 份");
+  } else {
+    bar1.replaceChildren();
+    bar2.replaceChildren();
+  }
 
   const step2 = document.getElementById("step2-note");
   const whole = document.getElementById("step2-whole");
@@ -615,29 +677,48 @@ function paintWork() {
     document.getElementById("step2-title").textContent = "2. 格子合在一起";
     document.getElementById("step2-label").textContent = "合在一起";
     const total = sn + sn2;
+    const sumText = state.sumNum + "/" + state.sumDen;
+    whole.hidden = false;
+    paintFrac("frac-result", state.sumNum, state.sumDen);
+    if (!drawCells) {
+      let piece = sn + " 格加上 " + sn2 + " 格是 " + state.sumNum + " 格，所以是 " + sumText + "。";
+      if (state.sumWhole > 0 && state.sumRest === 0) {
+        piece += "正好是 " + state.sumWhole + " 整块。";
+      } else if (state.sumWhole > 0) {
+        piece += "先有 " + state.sumWhole + " 整块，还剩 " + state.sumRest + "/" + sd + "。剩下的格子太小，不画出来。";
+      } else {
+        piece += "不到一整块。格子太小，不把每一格画出来。";
+      }
+      step2.textContent = piece + knife;
+      if (state.sumWhole > 0) {
+        result.hidden = false;
+        fillSolid(result, state.sumWhole);
+        result.setAttribute("aria-label", state.sumWhole + " 整块");
+        legend.append(legendItem("full", "一整块"));
+      } else {
+        result.hidden = true;
+        result.replaceChildren();
+      }
+      return;
+    }
     legend.append(
       legendItem("from1 on", "第一条的格子"),
       legendItem("from2 on", "第二条的格子")
     );
-    if (state.sumOk) {
+    if (state.sumWhole === 0) {
       step2.textContent = sn + " 格加上 " + sn2 + " 格，合在一起 " + total + " 格，仍是 " + sd
-        + " 份，所以是 " + state.sumNum + "/" + state.sumDen + "。分母是刀切出来的份数，两把刀不加在一起。";
-      whole.hidden = false;
-      paintFrac("frac-result", state.sumNum, state.sumDen);
-      result.hidden = false;
-      staticBar(result, sd, (i) => {
-        if (i < sn) return "from1 on";
-        if (i < total) return "from2 on";
-        return "";
-      });
-      result.setAttribute("aria-label", "合在一起 " + total + " 格，一共 " + sd + " 份");
+        + " 份，所以是 " + sumText + "。" + knife;
+    } else if (state.sumRest === 0) {
+      step2.textContent = sn + " 格加上 " + sn2 + " 格是 " + total + " 格，正好放满 "
+        + state.sumWhole + " 整块，所以是 " + sumText + "。" + knife;
     } else {
-      step2.textContent = sn + " 格加上 " + sn2 + " 格是 " + total + " 格，一条只有 " + sd
-        + " 格，放不下。这课先不画超过一整块的。分母是刀切出来的份数，两把刀不加在一起。";
-      whole.hidden = true;
-      result.hidden = true;
-      result.replaceChildren();
+      step2.textContent = sn + " 格加上 " + sn2 + " 格是 " + total + " 格。一条只有 " + sd
+        + " 格，先放满 " + state.sumWhole + " 整块，还剩 " + state.sumRest + " 格，所以是 "
+        + sumText + "。" + knife;
     }
+    result.hidden = false;
+    fillJoined(result, sd, sn, total, state.sumWhole + (state.sumRest > 0 ? 1 : 0));
+    result.setAttribute("aria-label", "合在一起 " + total + " 格，每条 " + sd + " 份");
     return;
   }
   document.getElementById("step2-title").textContent = "2. 从第一条里拿掉";
@@ -649,7 +730,7 @@ function paintWork() {
     whole.hidden = false;
     paintFrac("frac-result", left, sd);
     result.hidden = false;
-    staticBar(result, sd, (i) => {
+    fillRow(result, sd, (i) => {
       if (i < left) return "kept on";
       if (i < sn) return "gone";
       return "";

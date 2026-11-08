@@ -104,13 +104,15 @@
         (b (fr:reduce-pair (fr:num2 st) (fr:den2 st))))
     (fr:ok (fr:make (car a) (bits:nth a 1) (car b) (bits:nth b 1)))))
 
-(define (fr:common st)
+(define (fr:scale st)
   (let ((d1 (fr:den st)) (d2 (fr:den2 st)))
     (let ((m (/ (* d1 d2) (fr:gcd d1 d2))))
-      (if (> m 24)
-        #f
-        (fr:make (* (fr:num st) (/ m d1)) m
-                 (* (fr:num2 st) (/ m d2)) m)))))
+      (fr:make (* (fr:num st) (/ m d1)) m
+               (* (fr:num2 st) (/ m d2)) m))))
+
+(define (fr:common st)
+  (let ((scaled (fr:scale st)))
+    (if (> (fr:den scaled) 24) #f scaled)))
 
 (define (fr:same st)
   (let ((next (fr:common st)))
@@ -119,16 +121,14 @@
       (fr:ok next))))
 
 (define (fr:sum st)
-  (let ((scaled (fr:common st)))
-    (if (not (pair? scaled))
-      #f
-      (let ((n (+ (fr:num scaled) (fr:num2 scaled))) (d (fr:den scaled)))
-        (if (> n d) #f (list n d))))))
+  (let ((scaled (fr:scale st)))
+    (list (+ (fr:num scaled) (fr:num2 scaled)) (fr:den scaled))))
 
-(define (fr:add st)
-  (if (pair? (fr:sum st))
-    (fr:ok st)
-    (fr:fail "加起来超过一整块，或者要切成比 24 还多的份。这课先不画" st)))
+(define (fr:whole n d) (/ n d))
+
+(define (fr:rest n d) (- n (* (fr:whole n d) d)))
+
+(define (fr:add st) (fr:ok st))
 
 (define (fr:diff st)
   (let ((scaled (fr:common st)))
@@ -410,7 +410,7 @@
     (string-append out "]")))
 
 (define (fr:json-view state ok? err note source workspace mut nodes)
-  (let ((sum (fr:sum state)) (diff (fr:diff state)) (scaled (fr:common state)))
+  (let ((sum (fr:sum state)) (diff (fr:diff state)) (wide (fr:scale state)))
     (bits:cat (list
       "{"
       (bits:cat (list
@@ -423,13 +423,15 @@
         ",\"num2\":" (number->string (fr:num2 state))
         ",\"den2\":" (number->string (fr:den2 state))
         ",\"quot\":" (number->string (/ (fr:num state) (fr:den state)))
-        ",\"sameOk\":" (fr:json-bool (pair? scaled))
-        ",\"sameNum\":" (number->string (if (pair? scaled) (fr:num scaled) 0))
-        ",\"sameDen\":" (number->string (if (pair? scaled) (fr:den scaled) 0))
-        ",\"sameNum2\":" (number->string (if (pair? scaled) (fr:num2 scaled) 0))
+        ",\"sameOk\":" (fr:json-bool (<= (fr:den wide) 24))
+        ",\"sameNum\":" (number->string (fr:num wide))
+        ",\"sameDen\":" (number->string (fr:den wide))
+        ",\"sameNum2\":" (number->string (fr:num2 wide))
         ",\"sumOk\":" (fr:json-bool (pair? sum))
         ",\"sumNum\":" (number->string (if (pair? sum) (car sum) 0))
         ",\"sumDen\":" (number->string (if (pair? sum) (bits:nth sum 1) 0))
+        ",\"sumWhole\":" (number->string (if (pair? sum) (fr:whole (car sum) (bits:nth sum 1)) 0))
+        ",\"sumRest\":" (number->string (if (pair? sum) (fr:rest (car sum) (bits:nth sum 1)) 0))
         ",\"diffOk\":" (fr:json-bool (pair? diff))
         ",\"diffNum\":" (number->string (if (pair? diff) (car diff) 0))
         ",\"diffDen\":" (number->string (if (pair? diff) (bits:nth diff 1) 0))

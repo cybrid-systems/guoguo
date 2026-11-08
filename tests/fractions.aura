@@ -47,6 +47,8 @@
 (expect "same den" (has view "\"sameDen\":6") #t)
 (expect "same num2" (has view "\"sameNum2\":2") #t)
 (expect "same ok" (has view "\"sameOk\":true") #t)
+(expect "sum whole" (has view "\"sumWhole\":0") #t)
+(expect "sum rest" (has view "\"sumRest\":5") #t)
 
 (define samed (fr:command fresh "same"))
 (expect "same ok" (bits:ok? samed) #t)
@@ -71,6 +73,61 @@
 (expect "big same num2" (has big-view "\"sameNum2\":4") #t)
 (expect "big same ok" (has big-view "\"sameOk\":true") #t)
 (expect "big diff ok" (has big-view "\"diffOk\":false") #t)
+
+(define past-one
+  (bits:result (fr:command
+    (bits:result (fr:command
+      (bits:result (fr:command fresh "cut 4"))
+      "take 3"))
+    "take2 2")))
+(expect "past one" (quad past-one) (list 3 4 2 3))
+(define past-add (fr:command past-one "add"))
+(expect "past add" (bits:ok? past-add) #t)
+(expect "past kept" (quad (bits:result past-add)) (list 3 4 2 3))
+(define past-view (fr:json-view past-one #t "" "" "" "" "" (list)))
+(expect "past sum" (has past-view "\"sumNum\":17") #t)
+(expect "past den" (has past-view "\"sumDen\":12") #t)
+(expect "past whole" (has past-view "\"sumWhole\":1") #t)
+(expect "past rest" (has past-view "\"sumRest\":5") #t)
+(expect "past same" (has past-view "\"sameNum\":9") #t)
+(expect "past same2" (has past-view "\"sameNum2\":8") #t)
+
+(define wide
+  (bits:result (fr:command
+    (bits:result (fr:command fresh "cut 13"))
+    "cut2 17")))
+(expect "wide" (quad wide) (list 1 13 1 17))
+(expect "wide same" (bits:ok? (fr:command wide "same")) #f)
+(expect "wide add" (bits:ok? (fr:command wide "add")) #t)
+(expect "wide kept" (quad (bits:result (fr:command wide "add"))) (list 1 13 1 17))
+(expect "wide sub" (bits:ok? (fr:command wide "sub")) #f)
+(define wide-view (fr:json-view wide #t "" "" "" "" "" (list)))
+(expect "wide ok" (has wide-view "\"sameOk\":false") #t)
+(expect "wide den" (has wide-view "\"sameDen\":221") #t)
+(expect "wide num" (has wide-view "\"sameNum\":17") #t)
+(expect "wide num2" (has wide-view "\"sameNum2\":13") #t)
+(expect "wide sum" (has wide-view "\"sumNum\":30") #t)
+(expect "wide sum den" (has wide-view "\"sumDen\":221") #t)
+(expect "wide whole" (has wide-view "\"sumWhole\":0") #t)
+(expect "wide rest" (has wide-view "\"sumRest\":30") #t)
+
+(define both
+  (bits:result (fr:command
+    (bits:result (fr:command
+      (bits:result (fr:command
+        (bits:result (fr:command fresh "cut 13"))
+        "take 12"))
+      "cut2 17"))
+    "take2 16")))
+(expect "both" (quad both) (list 12 13 16 17))
+(expect "both add" (bits:ok? (fr:command both "add")) #t)
+(define both-view (fr:json-view both #t "" "" "" "" "" (list)))
+(expect "both sum" (has both-view "\"sumNum\":412") #t)
+(expect "both den" (has both-view "\"sumDen\":221") #t)
+(expect "both whole" (has both-view "\"sumWhole\":1") #t)
+(expect "both rest" (has both-view "\"sumRest\":191") #t)
+(expect "both same" (has both-view "\"sameNum\":204") #t)
+(expect "both same2" (has both-view "\"sameNum2\":208") #t)
 
 (define cut (fr:command fresh "cut 4"))
 (expect "cut" (quad (bits:result cut)) (list 1 4 1 3))
