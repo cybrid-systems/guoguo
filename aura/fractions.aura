@@ -130,6 +130,22 @@
     (fr:ok st)
     (fr:fail "加起来超过一整块，或者要切成比 24 还多的份。这课先不画" st)))
 
+(define (fr:diff st)
+  (let ((scaled (fr:common st)))
+    (if (not (pair? scaled))
+      #f
+      (let ((n (- (fr:num scaled) (fr:num2 scaled))) (d (fr:den scaled)))
+        (if (< n 0) #f (list n d))))))
+
+(define (fr:sub st)
+  (let ((scaled (fr:common st)))
+    (cond
+      ((not (pair? scaled))
+        (fr:fail "减的时候要先切成一样，那样会超过 24 格" st))
+      ((< (- (fr:num scaled) (fr:num2 scaled)) 0)
+        (fr:fail "减掉的比第一条多。这课先不画负的" st))
+      (#t (fr:ok st)))))
+
 (define (fr:from-text st src)
   (let ((n (fr:nat (bits:field src "num")))
         (d (fr:nat (bits:field src "den")))
@@ -157,6 +173,7 @@
         ((equal? op "reduce") (fr:reduce st))
         ((equal? op "same") (fr:same st))
         ((equal? op "add") (fr:add st))
+        ((equal? op "sub") (fr:sub st))
         (#t (fr:fail "看不懂这一句" st))))))
 
 (define (fr:command state text)
@@ -393,7 +410,7 @@
     (string-append out "]")))
 
 (define (fr:json-view state ok? err note source workspace mut nodes)
-  (let ((sum (fr:sum state)))
+  (let ((sum (fr:sum state)) (diff (fr:diff state)))
     (bits:cat (list
       "{"
       (bits:cat (list
@@ -409,6 +426,9 @@
         ",\"sumOk\":" (fr:json-bool (pair? sum))
         ",\"sumNum\":" (number->string (if (pair? sum) (car sum) 0))
         ",\"sumDen\":" (number->string (if (pair? sum) (bits:nth sum 1) 0))
+        ",\"diffOk\":" (fr:json-bool (pair? diff))
+        ",\"diffNum\":" (number->string (if (pair? diff) (car diff) 0))
+        ",\"diffDen\":" (number->string (if (pair? diff) (bits:nth diff 1) 0))
         ",\"source\":" (bits:json-string source)
         ",\"workspace\":" (bits:json-string workspace)
         ",\"mut\":" (bits:json-string mut)

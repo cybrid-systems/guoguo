@@ -40,6 +40,9 @@
 (expect "sum num" (has view "\"sumNum\":5") #t)
 (expect "sum den" (has view "\"sumDen\":6") #t)
 (expect "sum ok" (has view "\"sumOk\":true") #t)
+(expect "diff num" (has view "\"diffNum\":1") #t)
+(expect "diff den" (has view "\"diffDen\":6") #t)
+(expect "diff ok" (has view "\"diffOk\":true") #t)
 
 (define samed (fr:command fresh "same"))
 (expect "same ok" (bits:ok? samed) #t)
@@ -48,6 +51,16 @@
 (define added (fr:command (bits:result samed) "add"))
 (expect "add ok" (bits:ok? added) #t)
 (expect "add kept" (quad (bits:result added)) (list 3 6 2 6))
+
+(define subtracted (fr:command fresh "sub"))
+(expect "sub ok" (bits:ok? subtracted) #t)
+(expect "sub kept" (quad (bits:result subtracted)) (list 1 2 1 3))
+
+(define bigger (fr:command fresh "take2 2"))
+(define cannot (fr:command (bits:result bigger) "sub"))
+(expect "sub too big" (bits:ok? cannot) #f)
+(expect "sub too big kept" (quad (bits:result cannot)) (list 1 2 2 3))
+(expect "sub too big msg" (bits:error cannot) "减掉的比第一条多。这课先不画负的")
 
 (define cut (fr:command fresh "cut 4"))
 (expect "cut" (quad (bits:result cut)) (list 1 4 1 3))

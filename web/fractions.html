@@ -98,6 +98,8 @@
   button.cell.on { background: var(--gold); border-color: #b78412; }
   .cell.sum { background: #d5e4f5; border-color: var(--sea); }
   .cell.sum.on { background: var(--sea); }
+  .cell.diff { background: #d7eadf; border-color: var(--leaf); }
+  .cell.diff.on { background: var(--leaf); }
   .tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
   .quot {
     font-family: ui-monospace, "Source Code Pro", monospace;
@@ -183,7 +185,7 @@
     <p class="lead">一块东西切成同样大的几份。分数是两个整数，加上怎么把它们画出来。</p>
     <nav>
       <button type="button" data-tab="1" aria-selected="true">第 1 课 · 切开，拿走</button>
-      <button type="button" data-tab="2" aria-selected="false">第 2 课 · 谁大，加在一起</button>
+      <button type="button" data-tab="2" aria-selected="false">第 2 课 · 谁大，加减</button>
     </nav>
     <details>
       <summary>给一起上课的人</summary>
@@ -241,6 +243,7 @@
       <div class="tools">
         <button type="button" data-cmd="same">切成一样</button>
         <button type="button" data-cmd="add">加起来</button>
+        <button type="button" data-cmd="sub">减掉</button>
         <button type="button" data-cmd="reduce">收成最简</button>
       </div>
       <button type="button" class="echo" id="echo-2" data-echo="*num2*"></button>
@@ -251,6 +254,13 @@
       <p id="sum-note" class="muted">和是画出来的。程序里仍然只有原来的四个数。</p>
       <div class="whole"><span>加起来</span><span id="frac-sum" class="frac"></span></div>
       <div id="bar-sum" class="bar" role="img" aria-label="加起来的长条" hidden></div>
+    </section>
+
+    <section class="block" id="diff-block">
+      <h2>减掉</h2>
+      <p id="diff-note" class="muted">差是从第一条里拿掉第二条。程序里仍然只有原来的四个数。</p>
+      <div class="whole"><span>减掉</span><span id="frac-diff" class="frac"></span></div>
+      <div id="bar-diff" class="bar" role="img" aria-label="减掉以后的长条" hidden></div>
     </section>
 
     <section class="block">
@@ -294,6 +304,7 @@
 let state = null;
 let draft = false;
 let showedSum = false;
+let showedDiff = false;
 let lastCmd = "";
 let chain = Promise.resolve();
 
@@ -329,8 +340,16 @@ function applyState(data) {
     return;
   }
   const cmd = String(lastCmd || "").trim();
-  if (cmd === "add" && data.ok) showedSum = true;
-  else if (cmd) showedSum = false;
+  if (cmd === "add" && data.ok) {
+    showedSum = true;
+    showedDiff = false;
+  } else if (cmd === "sub" && data.ok) {
+    showedDiff = true;
+    showedSum = false;
+  } else if (cmd) {
+    showedSum = false;
+    showedDiff = false;
+  }
   state = data;
   render();
   const note = document.getElementById("note");
@@ -490,6 +509,27 @@ function showLesson(n) {
   history.replaceState(null, "", url);
 }
 
+function paintDrawn(kind, showed, ok, num, den, labels) {
+  const bar = document.getElementById("bar-" + kind);
+  const note = document.getElementById(kind + "-note");
+  const fracId = "frac-" + kind;
+  if (showed && ok) {
+    bar.hidden = false;
+    paintFrac(fracId, num, den);
+    fillBar(bar, den, num, kind);
+    bar.setAttribute("aria-label", labels.ready + num + "/" + den);
+    note.textContent = labels.done;
+  } else if (!ok) {
+    bar.hidden = true;
+    document.getElementById(fracId).replaceChildren();
+    note.textContent = labels.blocked;
+  } else {
+    bar.hidden = true;
+    document.getElementById(fracId).replaceChildren();
+    note.textContent = labels.idle;
+  }
+}
+
 function paintFrac(id, num, den) {
   const el = document.getElementById(id);
   el.replaceChildren();
@@ -505,9 +545,9 @@ function fillBar(host, den, num, kind) {
   host.replaceChildren();
   for (let i = 0; i < den; i++) {
     const on = i < num;
-    if (kind === "sum") {
+    if (kind === "sum" || kind === "diff") {
       const cell = document.createElement("div");
-      cell.className = "cell sum" + (on ? " on" : "");
+      cell.className = "cell " + kind + (on ? " on" : "");
       host.append(cell);
       continue;
     }
@@ -562,23 +602,18 @@ function render() {
     else compare = "分母一样。下面拿走的更多。";
   }
   document.getElementById("compare").textContent = compare;
-  const sumBar = document.getElementById("bar-sum");
-  const sumNote = document.getElementById("sum-note");
-  if (showedSum && state.sumOk) {
-    sumBar.hidden = false;
-    paintFrac("frac-sum", state.sumNum, state.sumDen);
-    fillBar(sumBar, state.sumDen, state.sumNum, "sum");
-    sumBar.setAttribute("aria-label", "加起来是 " + state.sumNum + "/" + state.sumDen);
-    sumNote.textContent = "和是算出来的，四个数没有改。";
-  } else if (!state.sumOk) {
-    sumBar.hidden = true;
-    document.getElementById("frac-sum").replaceChildren();
-    sumNote.textContent = "加起来超过一整块，或者要切成比 24 还多的份。这课先不画。";
-  } else {
-    sumBar.hidden = true;
-    document.getElementById("frac-sum").replaceChildren();
-    sumNote.textContent = "按「加起来」。和画在下面，不写进程序。";
-  }
+  paintDrawn("sum", showedSum, state.sumOk, state.sumNum, state.sumDen, {
+    ready: "加起来是 ",
+    done: "和是算出来的，四个数没有改。",
+    blocked: "加起来超过一整块，或者要切成比 24 还多的份。这课先不画。",
+    idle: "按「加起来」。和画在下面，不写进程序。"
+  });
+  paintDrawn("diff", showedDiff, state.diffOk, state.diffNum, state.diffDen, {
+    ready: "减掉以后是 ",
+    done: "差是算出来的，四个数没有改。",
+    blocked: "减掉的比第一条多，或者要切成比 24 还多的份。这课先不画负的。",
+    idle: "按「减掉」。差画在下面，不写进程序。"
+  });
   const quot = "(/ " + num + " " + den + ") 得到 " + state.quot + "。长条亮着 " + num + " 份，这个 " + state.quot + " 不是分数。";
   document.getElementById("quot").textContent = quot;
   document.getElementById("quot-side").textContent = quot;
