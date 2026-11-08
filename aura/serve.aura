@@ -1,4 +1,4 @@
-; 回环上的开关课。真值是工作区里的七个字面量，浏览器只预览。
+; 听在 0.0.0.0 上的开关课。真值是工作区里的七个字面量，浏览器只预览。
 ; 启动时 set-code 装上 aura/board-seed.aura。之后每次改动是一次
 ; mutate:replace-value，不把孩子贴来的正文再 set-code 进去。
 ; GET / 开关课，GET /catalog.json 课程名册，GET /web 里的单层 .html 和 .js。
@@ -27,6 +27,11 @@
 (define (serve:port)
   (let ((n (string->number (serve:env "GUOGUO_PORT" "8765") 10)))
     (if (and (integer? n) (>= n 0) (<= n 65535)) n 8765)))
+
+; 默认每块网卡都听。本机仍可用 127.0.0.1。另一台电脑用这台机器的地址。
+; GUOGUO_BIND=127.0.0.1 可以收回到回环。地址必须是 IPv4 数字。
+(define (serve:bind)
+  (serve:env "GUOGUO_BIND" "0.0.0.0"))
 
 (define (serve:cat parts)
   (let ((out "") (p parts))
@@ -411,26 +416,24 @@
   (set! *runtime* (serve:env "GUOGUO_RUNTIME" "runtime"))
   (set! *port-file* (string-append *runtime* "/port"))
   (serve:boot)
-  (let ((listener (tcp-listen (serve:port))))
+  (let ((listener (tcp-listen (serve:port) (serve:bind))))
     (if (not (integer? listener))
       (begin
-        (display "端口打不开。换一个 GUOGUO_PORT 再试。\n")
+        (display "端口打不开。换一个 GUOGUO_PORT，或检查 GUOGUO_BIND 是不是 IPv4 数字。\n")
         (exit 1))
       (let ((port (tcp-local-port listener)))
         (if (not (integer? port))
           (begin (display "不知道端口。\n") (exit 1))
           (begin
             (write-file *port-file* (string-append (number->string port) "\n"))
-            (display (string-append
-                       "果果的课已经打开\n开关课 http://127.0.0.1:"
-                       (number->string port)
-                       "\n开关课第 2 课 http://127.0.0.1:"
-                       (number->string port)
-                       "/?lesson=2\n分数课 http://127.0.0.1:"
-                       (number->string port)
-                       "/fractions.html\n全部课程 http://127.0.0.1:"
-                       (number->string port)
-                       "/courses.html\n按 Ctrl+C 结束\n"))
+            (display (serve:cat (list
+                       "果果的课已经打开，听在 " (serve:bind) ":" (number->string port) "\n"
+                       "本机 http://127.0.0.1:" (number->string port) "\n"
+                       "开关课第 2 课 http://127.0.0.1:" (number->string port) "/?lesson=2\n"
+                       "分数课 http://127.0.0.1:" (number->string port) "/fractions.html\n"
+                       "全部课程 http://127.0.0.1:" (number->string port) "/courses.html\n"
+                       "另一台电脑用这台机器的地址，不要用那台电脑自己的 127.0.0.1。\n"
+                       "按 Ctrl+C 结束\n")))
             (serve:loop listener)))))))
 
 (serve:start)

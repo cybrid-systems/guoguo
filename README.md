@@ -19,9 +19,11 @@ cd /home/dev/code/grok-dev/guoguo
 make run
 ```
 
-终端会打印地址，一般是 <http://127.0.0.1:8765>。开关课的第 2 课可以直接打开 <http://127.0.0.1:8765/?lesson=2>。Ctrl+C 结束。
+终端会打印地址。服务听在 `0.0.0.0:8765`，所以这台机器上打开 <http://127.0.0.1:8765>。开关课的第 2 课是 <http://127.0.0.1:8765/?lesson=2>。Ctrl+C 结束。
 
-换端口：`GUOGUO_PORT=8770 make run`。
+另一台电脑（比如跑着这台虚拟机的 Mac）要用这台机器的地址，例如 `http://<这台机器的地址>:8765`，不要用那台电脑自己的 `127.0.0.1`。只想听回环时用 `GUOGUO_BIND=127.0.0.1 make run`。`GUOGUO_BIND` 只能是 IPv4 数字，比如 `0.0.0.0` 或 `127.0.0.1`。
+
+这需要能接受 `(tcp-listen 端口 地址)` 的 Aura。v0.1.0 还只有一个参数，会拒绝启动。换端口：`GUOGUO_PORT=8770 make run`。
 
 开关课怎么讲，写在 [`docs/lesson-1.md`](docs/lesson-1.md)。分数课是 <http://127.0.0.1:8765/fractions.html>，讲稿在 [`docs/lesson-fractions.md`](docs/lesson-fractions.md)。从开关课点过去会换工作区：开关课留在 `runtime/live.aura`，分数课留在 `runtime/fractions.aura`。`GUOGUO_LESSON=fractions make run` 则一开始就进分数课。
 
@@ -42,7 +44,7 @@ make test
 | `aura/board.aura` | 钉住字面量节点，并用 replace-value 改它们 |
 | `aura/fractions.aura` | 分数的计算，以及四个字面量的 replace-value |
 | `aura/fraction-seed.aura` | 装进工作区的四个定义 |
-| `aura/serve.aura` | 只听本机的预览服务。开关课和分数课共用，换页时换工作区 |
+| `aura/serve.aura` | 默认听 `0.0.0.0` 的预览服务。开关课和分数课共用，换页时换工作区 |
 | `web/fractions.html` | 分数课 |
 | `courses/catalog.json` | 课程名册。加一课先改这里 |
 | `web/index.html` | 开关课 |
