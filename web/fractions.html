@@ -106,7 +106,9 @@
   }
   .cell.full { background: var(--ink); border-color: var(--ink); }
   .stack { display: flex; flex-direction: column; gap: 8px; margin: 10px 0 12px; }
-  .stack > .bar { margin: 0; }
+  .stack .bar { margin: 0; }
+  .bar.slots { display: grid; grid-template-columns: repeat(var(--slots), minmax(0, 1fr)); }
+  .rowcap { margin: 2px 0 0; }
   .steps {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -569,20 +571,39 @@ function fillRow(host, den, klassAt) {
   host.append(row);
 }
 
-function fillJoined(host, sd, sn, total, bars) {
+function joinedCell(g, sn, total) {
+  const cell = document.createElement("div");
+  let extra = "";
+  if (g < sn) extra = "from1 on";
+  else if (g < total) extra = "from2 on";
+  cell.className = extra ? "cell " + extra : "cell";
+  return cell;
+}
+
+function fillJoined(host, sd, sn, total, whole, rest) {
   host.replaceChildren();
-  const count = total === 0 ? 1 : bars;
-  for (let b = 0; b < count; b++) {
-    const row = document.createElement("div");
-    row.className = "bar";
-    staticBar(row, sd, (i) => {
-      const g = b * sd + i;
-      if (g < sn) return "from1 on";
-      if (g < total) return "from2 on";
-      return "";
-    });
-    host.append(row);
+  const specs = [];
+  if (total === 0 || whole === 0) {
+    specs.push({ cells: sd, from: 0, cap: "" });
+  } else {
+    for (let b = 0; b < whole; b++) specs.push({ cells: sd, from: b * sd, cap: "一整块" });
+    if (rest > 0) specs.push({ cells: rest, from: whole * sd, cap: "还剩 " + rest + " 格" });
   }
+  specs.forEach((spec) => {
+    const group = document.createElement("div");
+    const row = document.createElement("div");
+    row.className = "bar slots";
+    row.style.setProperty("--slots", String(sd));
+    for (let i = 0; i < spec.cells; i++) row.append(joinedCell(spec.from + i, sn, total));
+    group.append(row);
+    if (spec.cap) {
+      const cap = document.createElement("p");
+      cap.className = "muted rowcap";
+      cap.textContent = spec.cap;
+      group.append(cap);
+    }
+    host.append(group);
+  });
 }
 
 function fillSolid(host, count) {
@@ -724,8 +745,10 @@ function paintWork() {
         + sumText + "。" + knife;
     }
     result.hidden = false;
-    fillJoined(result, sd, sn, total, state.sumWhole + (state.sumRest > 0 ? 1 : 0));
-    result.setAttribute("aria-label", "合在一起 " + total + " 格，每条 " + sd + " 份");
+    fillJoined(result, sd, sn, total, state.sumWhole, state.sumRest);
+    result.setAttribute("aria-label", state.sumWhole > 0 && state.sumRest > 0
+      ? state.sumWhole + " 整块，还剩 " + state.sumRest + " 格"
+      : "合在一起 " + total + " 格，每条 " + sd + " 份");
     return;
   }
   document.getElementById("step2-title").textContent = "2. 从第一条里拿掉";
