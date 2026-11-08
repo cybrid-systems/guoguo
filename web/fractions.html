@@ -229,9 +229,9 @@
   <div id="lesson1">
     <section class="block">
       <h2>切开，拿走</h2>
-      <p>这一整条是 1。先切开，再点亮拿走的那些格。上面的数是拿走的份数，下面的数是切成的份数。</p>
-      <div class="whole"><span>1 整块</span><span id="frac1" class="frac"></span></div>
-      <div id="bar1" class="bar" role="group" aria-label="第一条长条"></div>
+      <p>每一条是 1。先切开，再点亮拿走的那些格。拿走的比一条多，就再画一条。上面的数是拿走的份数，下面的数是一条切成的份数。</p>
+      <div class="whole"><span>每一条是 1</span><span id="frac1" class="frac"></span></div>
+      <div id="bar1" class="stack" role="group" aria-label="第一条长条"></div>
       <div class="tools" id="cuts">
         <button type="button" data-cmd="cut 2" data-cut="2">切成 2 份</button>
         <button type="button" data-cmd="cut 3" data-cut="3">切成 3 份</button>
@@ -244,8 +244,10 @@
         <button type="button" data-cmd="coarser" id="coarser">切得更粗</button>
         <button type="button" data-cmd="reduce">收成最简</button>
         <button type="button" data-cmd="take 0">拿走 0 份</button>
+        <button type="button" id="more1">再拿一整块</button>
+        <button type="button" id="less1">放回一整块</button>
       </div>
-      <p class="muted">最多 24 格，才一格格点得清。分子不能比分母大。分母写成 0，页面不接受。</p>
+      <p class="muted">分母最多 24，才一格格点得清。分子也可以比一条多，最多 24。分母写成 0，页面不接受。</p>
       <button type="button" class="echo" id="echo-1" data-echo="*num*"></button>
     </section>
   </div>
@@ -256,10 +258,18 @@
       <p>先看第一条，再看第二条。格子不一样大的时候，不能只比分子。</p>
       <h3>第一条</h3>
       <div class="whole"><span>第一条</span><span id="frac1b" class="frac"></span></div>
-      <div id="bar1b" class="bar" role="group" aria-label="第一条长条"></div>
+      <div id="bar1b" class="stack" role="group" aria-label="第一条长条"></div>
+      <div class="tools">
+        <button type="button" id="more1b">再拿一整块</button>
+        <button type="button" id="less1b">放回一整块</button>
+      </div>
       <h3>第二条</h3>
       <div class="whole"><span>第二条</span><span id="frac2" class="frac"></span></div>
-      <div id="bar2" class="bar" role="group" aria-label="第二条长条"></div>
+      <div id="bar2" class="stack" role="group" aria-label="第二条长条"></div>
+      <div class="tools">
+        <button type="button" id="more2">再拿一整块</button>
+        <button type="button" id="less2">放回一整块</button>
+      </div>
       <div class="tools">
         <button type="button" data-cmd="cut2 2" data-cut2="2">第二条切成 2 份</button>
         <button type="button" data-cmd="cut2 3" data-cut2="3">切成 3 份</button>
@@ -770,20 +780,36 @@ function paintFrac(id, num, den) {
   el.append(top, line, bot);
 }
 
-function fillBar(host, den, num, kind) {
+function rowCount(whole, rest, num, den) {
+  if (typeof whole !== "number" || typeof rest !== "number" || den < 1) return 1;
+  let bars = whole + (rest > 0 ? 1 : 0);
+  if (bars < 1) bars = 1;
+  if (rest === 0 && num > 0 && num < 24) bars += 1;
+  const maxBars = Math.max(1, Math.ceil(24 / den));
+  return Math.min(bars, maxBars);
+}
+
+function fillBar(host, den, num, kind, whole, rest) {
   host.replaceChildren();
-  for (let i = 0; i < den; i++) {
-    const on = i < num;
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "cell" + (on ? " on" : "");
-    btn.setAttribute("aria-pressed", on ? "true" : "false");
-    btn.setAttribute("aria-label", "第 " + (i + 1) + " 份，" + (on ? "拿走了" : "还在"));
-    btn.addEventListener("click", () => {
-      const next = (i === num - 1) ? i : i + 1;
-      post((kind === 2 ? "take2 " : "take ") + next);
-    });
-    host.append(btn);
+  const rows = rowCount(whole, rest, num, den);
+  for (let b = 0; b < rows; b++) {
+    const row = document.createElement("div");
+    row.className = "bar";
+    for (let i = 0; i < den; i++) {
+      const g = b * den + i;
+      const on = g < num;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "cell" + (on ? " on" : "");
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+      btn.setAttribute("aria-label", "第 " + (g + 1) + " 份，" + (on ? "拿走了" : "还在"));
+      btn.addEventListener("click", () => {
+        const next = (g === num - 1) ? g : g + 1;
+        post((kind === 2 ? "take2 " : "take ") + next);
+      });
+      row.append(btn);
+    }
+    host.append(row);
   }
 }
 
@@ -796,20 +822,24 @@ function render() {
   paintFrac("frac1", num, den);
   paintFrac("frac1b", num, den);
   paintFrac("frac2", num2, den2);
-  fillBar(document.getElementById("bar1"), den, num, 1);
-  fillBar(document.getElementById("bar1b"), den, num, 1);
-  fillBar(document.getElementById("bar2"), den2, num2, 2);
+  fillBar(document.getElementById("bar1"), den, num, 1, state.whole, state.rest);
+  fillBar(document.getElementById("bar1b"), den, num, 1, state.whole, state.rest);
+  fillBar(document.getElementById("bar2"), den2, num2, 2, state.whole2, state.rest2);
   document.querySelectorAll("[data-cut]").forEach((b) => {
-    const n = Number(b.dataset.cut);
-    b.disabled = num > n;
-    b.setAttribute("aria-pressed", den === n ? "true" : "false");
+    b.disabled = false;
+    b.setAttribute("aria-pressed", den === Number(b.dataset.cut) ? "true" : "false");
   });
   document.querySelectorAll("[data-cut2]").forEach((b) => {
-    const n = Number(b.dataset.cut2);
-    b.disabled = num2 > n;
-    b.setAttribute("aria-pressed", den2 === n ? "true" : "false");
+    b.disabled = false;
+    b.setAttribute("aria-pressed", den2 === Number(b.dataset.cut2) ? "true" : "false");
   });
-  document.getElementById("finer").disabled = den * 2 > 24;
+  document.getElementById("more1").disabled = num + den > 24;
+  document.getElementById("less1").disabled = num < den;
+  document.getElementById("more1b").disabled = num + den > 24;
+  document.getElementById("less1b").disabled = num < den;
+  document.getElementById("more2").disabled = num2 + den2 > 24;
+  document.getElementById("less2").disabled = num2 < den2;
+  document.getElementById("finer").disabled = den * 2 > 24 || num * 2 > 24;
   document.getElementById("coarser").disabled = num % 2 !== 0 || den % 2 !== 0;
   const hot = new Set((state.nodes || []).filter((n) => n.changed).map((n) => n.name));
   const echo1 = document.getElementById("echo-1");
@@ -826,7 +856,14 @@ function render() {
   }
   document.getElementById("compare").textContent = compare;
   paintWork();
-  const quot = "(/ " + num + " " + den + ") 得到 " + state.quot + "。长条亮着 " + num + " 份，这个 " + state.quot + " 不是分数。";
+  let quot = "(/ " + num + " " + den + ") 得到 " + state.quot + "。";
+  if (state.whole > 0 && state.rest > 0) {
+    quot += "这是整块的个数，还剩 " + state.rest + " 格。分数仍是 " + num + "/" + den + "。";
+  } else if (state.whole > 0) {
+    quot += "这是整块的个数，没有剩下的格子。分数仍是 " + num + "/" + den + "。";
+  } else {
+    quot += "长条亮着 " + num + " 份，这个 " + state.quot + " 不是分数。";
+  }
   document.getElementById("quot").textContent = quot;
   document.getElementById("quot-side").textContent = quot;
 }
@@ -839,6 +876,21 @@ document.querySelectorAll("[data-cmd]").forEach((b) => {
     if (!b.disabled) post(b.dataset.cmd);
   });
 });
+function bindWhole(id, which, dir) {
+  const el = document.getElementById(id);
+  el.addEventListener("click", () => {
+    if (!state || el.disabled) return;
+    const cur = which === 2 ? state.num2 : state.num;
+    const den = which === 2 ? state.den2 : state.den;
+    post((which === 2 ? "take2 " : "take ") + (cur + dir * den));
+  });
+}
+bindWhole("more1", 1, 1);
+bindWhole("less1", 1, -1);
+bindWhole("more1b", 1, 1);
+bindWhole("less1b", 1, -1);
+bindWhole("more2", 2, 1);
+bindWhole("less2", 2, -1);
 document.getElementById("source").addEventListener("input", () => {
   draft = true;
   sync("程序改了，还没应用到画面。");

@@ -61,31 +61,29 @@
     #f))
 
 (define (fr:fit? n d)
-  (and (integer? n) (integer? d) (>= d 1) (<= d 24) (>= n 0) (<= n d)))
+  (and (integer? n) (integer? d) (>= d 1) (<= d 24) (>= n 0) (<= n 24)))
 
 (define (fr:cut st n first?)
   (if (not (integer? n))
     (fr:fail "要一个 1 到 24 的整数" st)
-    (let ((num (if first? (fr:num st) (fr:num2 st))))
-      (cond
-        ((or (< n 1) (> n 24)) (fr:fail "分母要在 1 和 24 之间" st))
-        ((> num n) (fr:fail "拿走的份数比切开的还多" st))
-        (first? (fr:ok (fr:make num n (fr:num2 st) (fr:den2 st))))
-        (#t (fr:ok (fr:make (fr:num st) (fr:den st) num n)))))))
+    (if (or (< n 1) (> n 24))
+      (fr:fail "分母要在 1 和 24 之间" st)
+      (if first?
+        (fr:ok (fr:make (fr:num st) n (fr:num2 st) (fr:den2 st)))
+        (fr:ok (fr:make (fr:num st) (fr:den st) (fr:num2 st) n))))))
 
 (define (fr:take st n first?)
   (if (not (integer? n))
     (fr:fail "要一个整数" st)
-    (let ((den (if first? (fr:den st) (fr:den2 st))))
-      (if (or (< n 0) (> n den))
-        (fr:fail "拿走的份数要在 0 和分母之间" st)
-        (if first?
-          (fr:ok (fr:make n den (fr:num2 st) (fr:den2 st)))
-          (fr:ok (fr:make (fr:num st) (fr:den st) n den)))))))
+    (if (or (< n 0) (> n 24))
+      (fr:fail "拿走的份数要在 0 和 24 之间" st)
+      (if first?
+        (fr:ok (fr:make n (fr:den st) (fr:num2 st) (fr:den2 st)))
+        (fr:ok (fr:make (fr:num st) (fr:den st) n (fr:den2 st)))))))
 
 (define (fr:finer st)
   (let ((n (fr:num st)) (d (fr:den st)))
-    (if (> (* d 2) 24)
+    (if (or (> (* d 2) 24) (> (* n 2) 24))
       (fr:fail "再切就超过 24 格了" st)
       (fr:ok (fr:make (* n 2) (* d 2) (fr:num2 st) (fr:den2 st))))))
 
@@ -151,8 +149,8 @@
       ((not (integer? d)) (fr:fail "程序里少了 *den*" st))
       ((not (integer? n2)) (fr:fail "程序里少了 *num2*" st))
       ((not (integer? d2)) (fr:fail "程序里少了 *den2*" st))
-      ((not (fr:fit? n d)) (fr:fail "第一条分数不对：分母要在 1 和 24 之间，分子不能更大" st))
-      ((not (fr:fit? n2 d2)) (fr:fail "第二条分数不对：分母要在 1 和 24 之间，分子不能更大" st))
+      ((not (fr:fit? n d)) (fr:fail "第一条分数不对：分母要在 1 和 24 之间，分子要在 0 和 24 之间" st))
+      ((not (fr:fit? n2 d2)) (fr:fail "第二条分数不对：分母要在 1 和 24 之间，分子要在 0 和 24 之间" st))
       (#t (fr:ok (fr:make n d n2 d2))))))
 
 (define (fr:line st raw)
@@ -417,7 +415,11 @@
         ",\"den\":" (number->string (fr:den state))
         ",\"num2\":" (number->string (fr:num2 state))
         ",\"den2\":" (number->string (fr:den2 state))
-        ",\"quot\":" (number->string (/ (fr:num state) (fr:den state)))
+        ",\"quot\":" (number->string (fr:whole (fr:num state) (fr:den state)))
+        ",\"whole\":" (number->string (fr:whole (fr:num state) (fr:den state)))
+        ",\"rest\":" (number->string (fr:rest (fr:num state) (fr:den state)))
+        ",\"whole2\":" (number->string (fr:whole (fr:num2 state) (fr:den2 state)))
+        ",\"rest2\":" (number->string (fr:rest (fr:num2 state) (fr:den2 state)))
         ",\"sameOk\":" (fr:json-bool (<= (fr:den wide) 24))
         ",\"sameNum\":" (number->string (fr:num wide))
         ",\"sameDen\":" (number->string (fr:den wide))

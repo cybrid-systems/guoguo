@@ -166,9 +166,56 @@
 (expect "cut 25 kept" (quad (bits:result huge)) (list 1 2 1 3))
 
 (define past (fr:command fresh "take 3"))
-(expect "take past" (bits:ok? past) #f)
-(expect "take past kept" (quad (bits:result past)) (list 1 2 1 3))
-(expect "take past msg" (bits:error past) "拿走的份数要在 0 和分母之间")
+(expect "take three" (bits:ok? past) #t)
+(expect "take three kept" (quad (bits:result past)) (list 3 2 1 3))
+(define too-many (fr:command fresh "take 25"))
+(expect "take 25" (bits:ok? too-many) #f)
+(expect "take 25 kept" (quad (bits:result too-many)) (list 1 2 1 3))
+(expect "take 25 msg" (bits:error too-many) "拿走的份数要在 0 和 24 之间")
+
+(define four
+  (bits:result (fr:command
+    (bits:result (fr:command fresh "cut 3"))
+    "take 4")))
+(expect "four thirds" (quad four) (list 4 3 1 3))
+(expect "cut under" (quad (bits:result (fr:command four "cut 2"))) (list 4 2 1 3))
+(define mixed
+  (bits:result (fr:command
+    (bits:result (fr:command four "cut2 4"))
+    "take2 5")))
+(expect "mixed" (quad mixed) (list 4 3 5 4))
+(expect "mixed add" (bits:ok? (fr:command mixed "add")) #t)
+(expect "mixed sub" (bits:ok? (fr:command mixed "sub")) #t)
+(expect "mixed kept" (quad (bits:result (fr:command mixed "add"))) (list 4 3 5 4))
+(define mixed-view (fr:json-view mixed #t "" "" "" "" "" (list)))
+(expect "mixed sum" (has mixed-view "\"sumNum\":31") #t)
+(expect "mixed den" (has mixed-view "\"sumDen\":12") #t)
+(expect "mixed whole" (has mixed-view "\"sumWhole\":2") #t)
+(expect "mixed rest" (has mixed-view "\"sumRest\":7") #t)
+(expect "mixed same" (has mixed-view "\"sameNum\":16") #t)
+(expect "mixed same2" (has mixed-view "\"sameNum2\":15") #t)
+(expect "mixed diff" (has mixed-view "\"diffNum\":1") #t)
+(expect "mixed diff den" (has mixed-view "\"diffDen\":12") #t)
+(expect "mixed bars" (has mixed-view "\"whole\":1") #t)
+(expect "mixed bars rest" (has mixed-view "\"rest\":1") #t)
+(expect "mixed bars2" (has mixed-view "\"whole2\":1") #t)
+(expect "mixed bars2 rest" (has mixed-view "\"rest2\":1") #t)
+(define other
+  (bits:result (fr:command
+    (bits:result (fr:command
+      (bits:result (fr:command fresh "cut 4"))
+      "take 5"))
+    "cut2 3")))
+(define other2 (bits:result (fr:command other "take2 4")))
+(expect "other" (quad other2) (list 5 4 4 3))
+(expect "other sub" (bits:ok? (fr:command other2 "sub")) #f)
+(expect "other kept" (quad (bits:result (fr:command other2 "sub"))) (list 5 4 4 3))
+(define heavy
+  (bits:result (fr:command
+    (bits:result (fr:command fresh "cut 7"))
+    "take 13")))
+(expect "heavy finer" (bits:ok? (fr:command heavy "finer")) #f)
+(expect "heavy kept" (quad (bits:result (fr:command heavy "finer"))) (list 13 7 1 3))
 
 (if (not (equal? (fr:install! "aura/fraction-seed.aura") #t))
   (begin (display "FRACTION_FAIL pin\n") (exit 1)))
@@ -202,7 +249,7 @@
 (expect "took def" (def-id "*num*") num-def)
 
 (define frozen (current-source :workspace))
-(define bad (fr:command (fr:state) "take 9"))
+(define bad (fr:command (fr:state) "take 25"))
 (expect "bad" (bits:ok? bad) #f)
 (expect "bad still" (equal? frozen (current-source :workspace)) #t)
 (expect "bad num" (lit-text "*num*") "1")
